@@ -330,16 +330,25 @@ const ArticleDetailPage = () => {
 
       {/* Article Content */}
       <Paper elevation={2} sx={{ p: 4, mb: 4 }}>
-        <Typography 
-          variant="body1" 
+        <Box 
           sx={{ 
             lineHeight: 1.8, 
             fontSize: '1.1rem',
-            whiteSpace: 'pre-line',
+            '& p': { marginBottom: 2 },
+            '& h2, & h3, & h4': { marginTop: 3, marginBottom: 1.5, fontWeight: 600 },
+            '& ul, & ol': { marginBottom: 2, paddingLeft: 3 },
+            '& blockquote': { 
+              borderLeft: '4px solid #2e7d32',
+              paddingLeft: 2,
+              margin: '16px 0',
+              fontStyle: 'italic',
+              backgroundColor: '#f5f5f5',
+              padding: 2
+            },
+            '& img': { maxWidth: '100%', height: 'auto', borderRadius: 1 }
           }}
-        >
-          {article.content}
-        </Typography>
+          dangerouslySetInnerHTML={{ __html: article.content }}
+        />
       </Paper>
 
       {/* Media Gallery */}

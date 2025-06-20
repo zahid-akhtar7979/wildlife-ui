@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -15,6 +15,8 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Search,
@@ -27,6 +29,30 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import Footer from '../components/common/Footer';
+import { articleService } from '../services/articleService';
+
+// Helper function to safely get a valid date
+const getValidDate = (article) => {
+  const dateString = article.publishDate || article.createdAt;
+  if (!dateString) return new Date(); // Fallback to current date
+  
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return new Date(); // Fallback to current date if invalid
+  }
+  return date;
+};
+
+// Helper function to safely format a date
+const formatSafeDate = (article, formatString = 'MMM d, yyyy') => {
+  try {
+    const date = getValidDate(article);
+    return format(date, formatString);
+  } catch (error) {
+    console.warn('Date formatting error for article:', article.id, error);
+    return 'Invalid date';
+  }
+};
 
 // Mock articles data - moved outside component to fix ESLint warning
 const mockArticles = [
@@ -81,20 +107,48 @@ const HomePage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [articles, setArticles] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Categories
-  const categories = ['Big Cats', 'Large Mammals', 'Primates'];
+  // Fetch articles and categories on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [articlesResponse, categoriesResponse] = await Promise.all([
+          articleService.getArticles(),
+          articleService.getCategories()
+        ]);
+        
+        setArticles(articlesResponse.data.articles || []);
+        setCategories(categoriesResponse.data.categories || []);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load articles. Please try again later.');
+        // Fallback to mock data if API fails
+        setArticles(mockArticles);
+        setCategories(['Big Cats', 'Large Mammals', 'Primates']);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredArticles = useMemo(() => {
-    let filtered = mockArticles.filter(article => article.published);
+    let filtered = articles.filter(article => article.published);
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(article => 
-        article.title.toLowerCase().includes(query) ||
-        article.excerpt.toLowerCase().includes(query) ||
-        article.tags.some(tag => tag.toLowerCase().includes(query)) ||
-        article.author.name.toLowerCase().includes(query)
+        (article.title || '').toLowerCase().includes(query) ||
+        (article.excerpt || '').toLowerCase().includes(query) ||
+        (article.tags || []).some(tag => tag.toLowerCase().includes(query)) ||
+        (article.author?.name || '').toLowerCase().includes(query)
       );
     }
 
@@ -103,9 +157,9 @@ const HomePage = () => {
     }
 
     return filtered.sort((a, b) => 
-      new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime()
+      getValidDate(b).getTime() - getValidDate(a).getTime()
     );
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, articles]);
 
   const ArticleCard = ({ article }) => (
     <Card 
@@ -127,7 +181,7 @@ const HomePage = () => {
       }}
     >
       {/* Image */}
-      {article.images.length > 0 && (
+      {article.images && article.images.length > 0 && (
         <Box sx={{ width: { xs: '100%', md: '33.333%' }, height: { xs: 200, md: 'auto' } }}>
           <CardMedia
             component="img"
@@ -162,7 +216,7 @@ const HomePage = () => {
                 fontWeight: 500,
               }}
             >
-              {article.author.name}
+              {article.author?.name || 'Unknown Author'}
             </Typography>
           </Box>
           
@@ -176,7 +230,7 @@ const HomePage = () => {
                 fontWeight: 500,
               }}
             >
-              {format(new Date(article.publishedDate), 'MMM d, yyyy')}
+              {formatSafeDate(article)}
             </Typography>
           </Box>
 
@@ -190,7 +244,7 @@ const HomePage = () => {
                 fontWeight: 500,
               }}
             >
-              {article.views.toLocaleString()} views
+              {(article.views || 0).toLocaleString()} views
             </Typography>
           </Box>
         </Box>
@@ -231,7 +285,7 @@ const HomePage = () => {
             overflow: 'hidden',
           }}
         >
-          {article.excerpt}
+          {article.excerpt || 'No excerpt available for this article.'}
         </Typography>
         
         {/* Tags and Read More */}
@@ -252,7 +306,7 @@ const HomePage = () => {
                 },
               }}
             />
-            {article.tags.slice(0, 2).map((tag) => (
+            {(article.tags || []).slice(0, 2).map((tag) => (
               <Chip
                 key={tag}
                 icon={<Tag sx={{ fontSize: 12, color: '#9ca3af' }} />}
@@ -272,7 +326,7 @@ const HomePage = () => {
                 }}
               />
             ))}
-            {article.tags.length > 2 && (
+            {(article.tags || []).length > 2 && (
               <Typography 
                 variant="caption" 
                 sx={{ 
@@ -282,7 +336,7 @@ const HomePage = () => {
                   fontWeight: 500,
                 }}
               >
-                +{article.tags.length - 2} more
+                +{(article.tags || []).length - 2} more
               </Typography>
             )}
           </Box>
@@ -421,6 +475,29 @@ const HomePage = () => {
 
       {/* Main Content */}
       <Container maxWidth="xl" sx={{ py: 6, px: { xs: 2, sm: 3, lg: 4 } }}>
+        {/* Loading State */}
+        {loading && (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+            <Box textAlign="center">
+              <CircularProgress size={60} sx={{ color: '#2e7d32', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Loading articles...
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <Box mb={4}>
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
+              {error}
+            </Alert>
+          </Box>
+        )}
+
+        {/* Content */}
+        {!loading && (
         <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', sm: 'row' } }}>
           {/* Categories Sidebar */}
           <Box sx={{ width: { xs: '100%', sm: '300px' }, flexShrink: 0 }}>
@@ -476,7 +553,7 @@ const HomePage = () => {
                     }}
                   >
                     <ListItemText 
-                      primary={`All Articles (${mockArticles.filter(a => a.published).length})`}
+                      primary={`All Articles (${articles.filter(a => a.published).length})`}
                       primaryTypographyProps={{
                         fontSize: '0.95rem',
                         fontFamily: 'Inter, sans-serif',
@@ -486,7 +563,7 @@ const HomePage = () => {
                   </ListItemButton>
                 </ListItem>
                 {categories.map((category) => {
-                  const count = mockArticles.filter(a => a.published && a.category === category).length;
+                  const count = articles.filter(a => a.published && a.category === category).length;
                   if (count === 0) return null;
                   
                   return (
@@ -562,6 +639,7 @@ const HomePage = () => {
                          )}
            </Box>
          </Box>
+        )}
       </Container>
 
       <Footer />

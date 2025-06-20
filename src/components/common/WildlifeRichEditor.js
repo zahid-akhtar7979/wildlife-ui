@@ -47,6 +47,10 @@ const WildlifeRichEditor = ({ value, onChange, placeholder, error, helperText, .
               'alignleft aligncenter alignright alignjustify | ' +
               'bullist numlist outdent indent | removeformat | ' +
               'link image | table | code fullscreen | help',
+            // Reduce automatic paragraph creation
+            forced_root_block: '', // Don't force root block elements
+            force_br_newlines: true, // Use <br> instead of <p> for line breaks
+            force_p_newlines: false, // Don't automatically create <p> tags
             content_style: `
               body { 
                 font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif; 

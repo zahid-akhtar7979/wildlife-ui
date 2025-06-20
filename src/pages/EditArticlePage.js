@@ -125,9 +125,11 @@ const EditArticlePage = () => {
       for (const file of acceptedFiles) {
         try {
           const response = await articleService.uploadMedia(file);
+          // Parse the nested response structure based on file type
+          const uploadData = file.type.startsWith('image/') ? response.data.image : response.data.video;
           const newImage = {
             id: Date.now() + Math.random(),
-            url: response.data.url,
+            url: uploadData.url,
             caption: '',
             alt: file.name,
             file: file,
@@ -151,11 +153,13 @@ const EditArticlePage = () => {
       for (const file of acceptedFiles) {
         try {
           const response = await articleService.uploadMedia(file);
+          // Parse the nested response structure for video
+          const uploadData = response.data.video;
           const newVideo = {
             id: Date.now() + Math.random(),
-            url: response.data.url,
+            url: uploadData.url,
             caption: '',
-            thumbnail: response.data.url,
+            thumbnail: uploadData.thumbnail || uploadData.url,
             file: file,
           };
           setVideos(prev => [...prev, newVideo]);

@@ -97,12 +97,17 @@ const CreateArticlePage = () => {
   }, [id, setValue]);
 
   // Upload file with progress tracking
-  const uploadFile = async (file, type) => {
+  const uploadFile = useCallback(async (file, type) => {
+
     const fileId = Date.now() + Math.random();
+    // Create local preview URL
+    const previewUrl = URL.createObjectURL(file);
+    console.log('🖼️ Created local preview URL:', previewUrl, 'for file:', file.name);
+
     const fileData = {
       id: fileId,
       file,
-      url: URL.createObjectURL(file),
+      url: previewUrl,
       caption: '',
       alt: file.name,
       status: 'uploading',
@@ -120,11 +125,12 @@ const CreateArticlePage = () => {
       setVideos(prev => [...prev, { ...fileData, thumbnail: fileData.url }]);
     }
 
-    try {
-      console.log(`🚀 Starting ${type.slice(0, -1)} upload:`, file.name);
+    let progressInterval;
+    
+          try {
       
       // Simulate progress updates (since we can't track real progress with current setup)
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setUploadingFiles(prev => {
           const updated = new Map(prev);
           const current = updated.get(fileId);
@@ -144,28 +150,43 @@ const CreateArticlePage = () => {
 
       console.log(`✅ ${type.slice(0, -1)} upload successful:`, response);
 
+      // Extract data from the nested response structure
+      const uploadData = type === 'images' ? response.data.image : response.data.video;
+      console.log('🔍 Extracted upload data:', uploadData);
+      
       // Update with server response
       const uploadedFile = {
-        id: fileId,
-        url: response.url,
-        thumbnailUrl: response.thumbnailUrl || response.url,
-        publicId: response.publicId,
+        id: fileId, // Keep local fileId for UI tracking
+        publicId: uploadData.id, // Cloudinary public_id for backend
+        url: uploadData.url,
+        thumbnailUrl: uploadData.thumbnail || uploadData.sizes?.thumbnail || uploadData.url,
         caption: '',
         alt: file.name,
         status: 'completed',
         progress: 100,
         error: null,
+        sizes: uploadData.sizes || {}, // Include responsive sizes
       };
 
       // Update the appropriate array
       if (type === 'images') {
-        setImages(prev => prev.map(img => 
-          img.id === fileId ? uploadedFile : img
-        ));
+        console.log('🔍 Updating images array. FileId:', fileId, 'UploadedFile:', uploadedFile);
+        setImages(prev => {
+          const updated = prev.map(img => 
+            img.id === fileId ? uploadedFile : img
+          );
+          console.log('🔍 Updated images array:', updated);
+          return updated;
+        });
       } else {
-        setVideos(prev => prev.map(vid => 
-          vid.id === fileId ? { ...uploadedFile, thumbnail: uploadedFile.thumbnailUrl } : vid
-        ));
+        console.log('🔍 Updating videos array. FileId:', fileId, 'UploadedFile:', uploadedFile);
+        setVideos(prev => {
+          const updated = prev.map(vid => 
+            vid.id === fileId ? { ...uploadedFile, thumbnail: uploadedFile.thumbnailUrl } : vid
+          );
+          console.log('🔍 Updated videos array:', updated);
+          return updated;
+        });
       }
 
       // Remove from uploading tracking
@@ -177,6 +198,9 @@ const CreateArticlePage = () => {
 
     } catch (error) {
       console.error(`❌ ${type.slice(0, -1)} upload failed:`, error);
+
+      // Clear progress interval on error
+      clearInterval(progressInterval);
 
       // Update with error state
       const errorFile = {
@@ -206,7 +230,7 @@ const CreateArticlePage = () => {
         return updated;
       });
     }
-  };
+  }, [setUploadingFiles, setImages, setVideos]);
 
   // Image dropzone
   const imageDropzone = useDropzone({
@@ -215,16 +239,72 @@ const CreateArticlePage = () => {
     },
     maxFiles: 10,
     maxSize: 5 * 1024 * 1024, // 5MB
-    onDrop: useCallback((acceptedFiles) => {
-      console.log('📷 Image files dropped:', acceptedFiles.length);
-      acceptedFiles.forEach(file => uploadFile(file, 'images'));
-    }, []),
-    onDropRejected: (fileRejections) => {
-      console.log('❌ Image files rejected:', fileRejections);
-      const errors = fileRejections.map(rejection => 
-        `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
-      );
-      setSubmitError(`Image upload errors: ${errors.join('; ')}`);
+    onDrop: useCallback((acceptedFiles, fileRejections, event) => {
+      try {
+        if (fileRejections.length > 0) {
+          const errors = fileRejections.map(rejection => 
+            `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
+          );
+          setSubmitError(`Image upload errors: ${errors.join('; ')}`);
+        }
+        
+        acceptedFiles.forEach(file => {
+          uploadFile(file, 'images');
+        });
+      } catch (error) {
+        console.error('❌ Error in onDrop handler:', error);
+      }
+    }, [uploadFile]),
+    onDropRejected: (fileRejections, event) => {
+      try {
+        console.log('❌ IMAGE DROPZONE - onDropRejected triggered:', fileRejections);
+        console.log('🔍 Rejection event:', event);
+        const errors = fileRejections.map(rejection => 
+          `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
+        );
+        setSubmitError(`Image upload errors: ${errors.join('; ')}`);
+      } catch (error) {
+        console.error('❌ Error in onDropRejected handler:', error);
+      }
+    },
+    onDropAccepted: (acceptedFiles, event) => {
+      try {
+        console.log('✅ IMAGE DROPZONE - onDropAccepted triggered with files:', acceptedFiles.length);
+        console.log('🔍 Accept event:', event);
+      } catch (error) {
+        console.error('❌ Error in onDropAccepted handler:', error);
+      }
+    },
+    onDragEnter: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      console.log('🎯 IMAGE DROPZONE - Drag enter detected');
+      console.log('🔍 Drag enter event:', event);
+      console.log('🔍 DataTransfer items:', event.dataTransfer?.items?.length || 0);
+      if (event.dataTransfer?.items) {
+        for (let i = 0; i < event.dataTransfer.items.length; i++) {
+          console.log(`📁 Item ${i}:`, {
+            kind: event.dataTransfer.items[i].kind,
+            type: event.dataTransfer.items[i].type
+          });
+        }
+      }
+    },
+    onDragLeave: (event) => {
+      console.log('🎯 IMAGE DROPZONE - Drag leave detected');
+      console.log('🔍 Drag leave event:', event);
+    },
+    onDragOver: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      console.log('🎯 IMAGE DROPZONE - Drag over detected');
+      console.log('🔍 Drag over event:', event);
+    },
+    onFileDialogCancel: () => {
+      console.log('❌ IMAGE DROPZONE - File dialog was canceled');
+    },
+    onFileDialogOpen: () => {
+      console.log('📂 IMAGE DROPZONE - File dialog opened');
     },
   });
 
@@ -238,7 +318,7 @@ const CreateArticlePage = () => {
     onDrop: useCallback((acceptedFiles) => {
       console.log('🎥 Video files dropped:', acceptedFiles.length);
       acceptedFiles.forEach(file => uploadFile(file, 'videos'));
-    }, []),
+    }, [uploadFile]),
     onDropRejected: (fileRejections) => {
       console.log('❌ Video files rejected:', fileRejections);
       const errors = fileRejections.map(rejection => 
@@ -306,15 +386,51 @@ const CreateArticlePage = () => {
         return;
       }
 
+      // Debug: Check what's in the images array
+      console.log('🔍 Raw images array:', images);
+      console.log('🔍 Raw videos array:', videos);
+
+      // Process images for backend
+      const processedImages = images
+        .filter(img => img.status === 'completed')
+        .map(({ file, status, progress, error, ...img }) => {
+          console.log('🔍 Processing image:', img);
+          return {
+            id: img.publicId,  // Use Cloudinary public_id, not local fileId
+            url: img.url,
+            caption: img.caption || '',
+            alt: img.alt || '',
+            sizes: img.sizes || {}
+          };
+        });
+
+      // Process videos for backend  
+      const processedVideos = videos
+        .filter(vid => vid.status === 'completed')
+        .map(({ file, status, progress, error, ...vid }) => {
+          console.log('🔍 Processing video:', vid);
+          return {
+            id: vid.publicId,  // Use Cloudinary public_id, not local fileId
+            url: vid.url,
+            caption: vid.caption || '',
+            thumbnail: vid.thumbnailUrl || vid.url
+          };
+        });
+
+      console.log('🔍 Raw form data received by onSubmit:', data);
+      console.log('🔍 data.published value:', data.published);
+      console.log('🔍 typeof data.published:', typeof data.published);
+
       const articleData = {
         ...data,
-        images: images.map(({ file, status, progress, error, ...img }) => img),
-        videos: videos.map(({ file, status, progress, error, ...vid }) => vid),
+        images: processedImages,
+        videos: processedVideos,
         publishDate: new Date().toISOString(),
         published: data.published || false,
       };
 
-      console.log('💾 Saving article:', articleData);
+      console.log('💾 Saving article with processed data:', articleData);
+      console.log('💾 articleData.published:', articleData.published);
       
       let response;
       if (existingArticle) {
@@ -338,21 +454,45 @@ const CreateArticlePage = () => {
 
     const handleButtonClick = (e) => {
       e.preventDefault();
-      console.log('🎯 Button clicked for:', type);
+      e.stopPropagation();
+      console.log('🎯 BUTTON CLICKED for:', type);
+      console.log('🔍 Button click event:', e);
+      console.log('🔍 Dropzone object:', dropzone);
+      console.log('🔍 File input ref:', fileInputRef.current);
       
-      if (dropzone.open) {
-        dropzone.open();
-      } else if (fileInputRef.current) {
-        fileInputRef.current.click();
+      try {
+        // Always prefer the file input over dropzone.open() to avoid conflicts
+        if (fileInputRef.current) {
+          console.log('📂 Using fileInputRef.current.click() (preferred method)');
+          fileInputRef.current.click();
+          console.log('✅ fileInputRef.current.click() called successfully');
+        } else if (dropzone.open) {
+          console.log('📂 Using dropzone.open() (fallback method)');
+          dropzone.open();
+          console.log('✅ dropzone.open() called successfully');
+        } else {
+          console.log('❌ Neither fileInputRef.current nor dropzone.open available!');
+        }
+      } catch (error) {
+        console.error('❌ Error opening file dialog:', error);
       }
     };
 
     const handleFileInputChange = (e) => {
+      console.log('📁 FILE INPUT CHANGE triggered for:', type);
+      console.log('📁 Event:', e);
+      console.log('📁 Files from input:', e.target.files);
+      
       const files = Array.from(e.target.files || []);
+      console.log('📁 Files array:', files);
       console.log('📁 Files selected via hidden input:', files.length);
       
-      files.forEach(file => uploadFile(file, type));
+      files.forEach(file => {
+        console.log('🚀 Processing file from input:', file.name, file.type, file.size);
+        uploadFile(file, type);
+      });
       e.target.value = '';
+      console.log('✅ File input value cleared');
     };
 
     return (
@@ -387,6 +527,19 @@ const CreateArticlePage = () => {
         
         <Box
           {...dropzone.getRootProps()}
+          onClick={(e) => {
+            console.log('🎯 DROPZONE AREA CLICKED for:', type);
+            console.log('🔍 Click event:', e);
+            console.log('🔍 Dropzone getRootProps:', dropzone.getRootProps());
+          }}
+          onDrop={(e) => {
+            console.log('🔥 NATIVE DROP EVENT DETECTED!', e);
+            console.log('🔍 Native drop files:', e.dataTransfer?.files);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            console.log('🔥 NATIVE DRAG OVER EVENT');
+          }}
           sx={{
             border: '2px dashed',
             borderColor: dropzone.isDragActive ? 'primary.main' : 'grey.300',
@@ -403,7 +556,13 @@ const CreateArticlePage = () => {
             }
           }}
         >
-          <input {...dropzone.getInputProps()} />
+          <input 
+            {...dropzone.getInputProps()} 
+            onChange={(e) => {
+              console.log('🎯 DROPZONE INPUT CHANGE for:', type);
+              console.log('📁 Input files:', e.target.files);
+            }}
+          />
           <CloudUpload sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
           <Typography variant="body1" gutterBottom>
             {dropzone.isDragActive 
@@ -424,33 +583,97 @@ const CreateArticlePage = () => {
             {items.map((item) => (
               <Grid item xs={12} sm={6} md={4} key={item.id}>
                 <Card>
-                  <Box position="relative">
+                  <Box 
+                    position="relative"
+                    sx={{
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      border: item.status === 'uploading' ? '2px solid #4caf50' : 
+                              item.status === 'completed' ? '2px solid #2e7d32' :
+                              item.status === 'error' ? '2px solid #f44336' : 'none',
+                      transition: 'border 0.3s ease'
+                    }}
+                  >
                     <CardMedia
                       component={type === 'images' ? 'img' : 'video'}
                       height={150}
                       src={item.url || item.thumbnail}
-                      sx={{ objectFit: 'cover' }}
+                      sx={{ 
+                        objectFit: 'cover',
+                        backgroundColor: '#f5f5f5',
+                        transition: 'all 0.3s ease',
+                        opacity: item.status === 'error' ? 0.6 : 1,
+                        filter: item.status === 'uploading' ? 'brightness(1.1)' : 'none'
+                      }}
+                      onError={(e) => {
+                        console.log('Image load error for:', item.url);
+                        // Fallback to show a placeholder if image fails to load
+                        e.target.style.backgroundColor = '#e0e0e0';
+                        e.target.style.display = 'flex';
+                        e.target.style.alignItems = 'center';
+                        e.target.style.justifyContent = 'center';
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Image loaded successfully:', item.url);
+                      }}
                     />
                     
-                    {/* Upload Status Overlay */}
+                    {/* Upload Status Overlay - Less intrusive */}
                     {item.status === 'uploading' && (
-                      <Box
-                        position="absolute"
-                        top={0}
-                        left={0}
-                        right={0}
-                        bottom={0}
-                        display="flex"
-                        flexDirection="column"
-                        justifyContent="center"
-                        alignItems="center"
-                        bgcolor="rgba(0,0,0,0.7)"
-                        color="white"
-                      >
-                        <CircularProgress color="inherit" size={40} sx={{ mb: 1 }} />
-                        <Typography variant="body2">Uploading...</Typography>
-                        <Typography variant="caption">{uploadingFiles.get(item.id)?.progress || 0}%</Typography>
-                      </Box>
+                      <>
+                        {/* Subtle overlay to indicate uploading */}
+                        <Box
+                          position="absolute"
+                          top={0}
+                          left={0}
+                          right={0}
+                          bottom={0}
+                          bgcolor="rgba(255,255,255,0.1)"
+                          backdropFilter="blur(1px)"
+                        />
+                        
+                        {/* Upload progress indicator in bottom-right corner */}
+                        <Box
+                          position="absolute"
+                          bottom={8}
+                          right={8}
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          bgcolor="rgba(0,0,0,0.8)"
+                          color="white"
+                          borderRadius={1}
+                          px={1}
+                          py={0.5}
+                        >
+                          <CircularProgress 
+                            size={16} 
+                            thickness={6}
+                            variant="determinate"
+                            value={uploadingFiles.get(item.id)?.progress || 0}
+                            sx={{ color: '#4caf50' }}
+                          />
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                            {uploadingFiles.get(item.id)?.progress || 0}%
+                          </Typography>
+                        </Box>
+
+                        {/* Upload status text in top-left */}
+                        <Box
+                          position="absolute"
+                          top={8}
+                          left={8}
+                          bgcolor="rgba(76, 175, 80, 0.9)"
+                          color="white"
+                          borderRadius={1}
+                          px={1}
+                          py={0.25}
+                        >
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                            Uploading...
+                          </Typography>
+                        </Box>
+                      </>
                     )}
 
                     {item.status === 'completed' && (
@@ -582,9 +805,25 @@ const CreateArticlePage = () => {
         </Box>
       )}
 
-      <Typography variant="body1" sx={{ whiteSpace: 'pre-line', lineHeight: 1.8 }}>
-        {watchedValues.content || 'No content yet...'}
-      </Typography>
+      <Box 
+        sx={{ 
+          lineHeight: 1.8, 
+          fontSize: '1rem',
+          '& p': { marginBottom: 2 },
+          '& h2, & h3, & h4': { marginTop: 3, marginBottom: 1.5, fontWeight: 600 },
+          '& ul, & ol': { marginBottom: 2, paddingLeft: 3 },
+          '& blockquote': { 
+            borderLeft: '4px solid #2e7d32',
+            paddingLeft: 2,
+            margin: '16px 0',
+            fontStyle: 'italic',
+            backgroundColor: '#f5f5f5',
+            padding: 2
+          },
+          '& img': { maxWidth: '100%', height: 'auto', borderRadius: 1 }
+        }}
+        dangerouslySetInnerHTML={{ __html: watchedValues.content || '<p style="color: #999; font-style: italic;">No content yet...</p>' }}
+      />
     </Paper>
   );
 
