@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService } from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -16,99 +17,112 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored auth data on mount
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-    
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
-    
-    setLoading(false);
+    // Initialize auth state from stored data
+    const initializeAuth = async () => {
+      try {
+        console.log('🔄 AuthContext: Initializing authentication...');
+        
+        // Let authService handle the initialization
+        authService.init();
+        
+        // Check if we have a valid user
+        const result = await authService.getCurrentUser();
+        
+        if (result.success && result.data?.user) {
+          console.log('✅ AuthContext: User found during initialization');
+          setUser(result.data.user);
+          setIsAuthenticated(true);
+        } else {
+          console.log('⚠️ AuthContext: No valid user found during initialization');
+        }
+      } catch (error) {
+        console.log('❌ AuthContext: Error during initialization:', error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email, password) => {
     try {
-      // Mock login with demo credentials
-      let mockUser;
+      console.log('🔐 AuthContext: Attempting login for:', email);
       
-      if (email === 'admin@wildlife.com' && password === 'admin123') {
-        mockUser = {
-          id: 1,
-          name: 'Admin User',
-          email: email,
-          role: 'admin',
-          approved: true
-        };
-      } else if (email === 'researcher@wildlife.com' && password === 'researcher123') {
-        mockUser = {
-          id: 2,
-          name: 'Dr. Sarah Wilson',
-          email: email,
-          role: 'contributor',
-          approved: true
-        };
+      // Use real authService for backend authentication
+      const result = await authService.login(email, password);
+      
+      console.log('📦 AuthContext: Login result:', result);
+      
+      if (result.success && result.user) {
+        console.log('✅ AuthContext: Login successful');
+        setUser(result.user);
+        setIsAuthenticated(true);
+        return { success: true, user: result.user };
       } else {
-        // For any other email/password, create a contributor user
-        mockUser = {
-          id: 3,
-          name: 'Wildlife Researcher',
-          email: email,
-          role: 'contributor',
-          approved: true
-        };
+        console.log('❌ AuthContext: Login failed:', result.message);
+        return { success: false, error: result.message || 'Login failed' };
       }
-      
-      const mockToken = 'mock-jwt-token';
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
-      
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      localStorage.setItem('token', mockToken);
-      
-      return { success: true, user: mockUser };
     } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Login failed' };
+      console.error('❌ AuthContext: Login error:', error);
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      console.log('🚪 AuthContext: Logging out');
+      
+      // Use real authService for logout
+      await authService.logout();
+      
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      console.log('✅ AuthContext: Logout successful');
+    } catch (error) {
+      console.error('❌ AuthContext: Logout error:', error);
+      
+      // Even if logout fails, clear local state
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   const register = async (userData) => {
     try {
-      // Mock registration - replace with actual API call
-      const newUser = {
-        id: Date.now(),
-        ...userData,
-        role: 'contributor',
-        approved: true
-      };
+      console.log('📝 AuthContext: Attempting registration for:', userData.email);
       
-      const mockToken = 'mock-jwt-token';
+      // Use real authService for backend registration
+      const result = await authService.register(userData);
       
-      setUser(newUser);
-      setIsAuthenticated(true);
+      console.log('📦 AuthContext: Registration result:', result);
       
-      localStorage.setItem('user', JSON.stringify(newUser));
-      localStorage.setItem('token', mockToken);
-      
-      return { success: true, user: newUser };
+      if (result.success && result.user) {
+        console.log('✅ AuthContext: Registration successful');
+        setUser(result.user);
+        setIsAuthenticated(true);
+        return { success: true, user: result.user };
+      } else {
+        console.log('❌ AuthContext: Registration failed:', result.message);
+        return { success: false, error: result.message || 'Registration failed' };
+      }
     } catch (error) {
-      console.error('Registration error:', error);
-      return { success: false, error: 'Registration failed' };
+      console.error('❌ AuthContext: Registration error:', error);
+      return { success: false, error: error.message || 'Registration failed' };
     }
   };
 
   const hasRole = (role) => {
-    return user?.role === role || user?.role === 'admin';
+    if (!user?.role) return false;
+    
+    const userRole = user.role.toLowerCase();
+    const requiredRole = role.toLowerCase();
+    
+    console.log('🔐 Role check:', { userRole, requiredRole, hasAccess: userRole === requiredRole || userRole === 'admin' });
+    
+    // Admin has access to everything, or exact role match
+    return userRole === requiredRole || userRole === 'admin';
   };
 
   const value = {
