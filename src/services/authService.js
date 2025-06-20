@@ -17,6 +17,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Adding auth token to request:', config.url, token.substring(0, 20) + '...');
+    } else {
+      console.log('⚠️ No auth token found for request:', config.url);
     }
     return config;
   },
@@ -44,8 +47,19 @@ export const authService = {
   setAuthToken: (token) => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Auth token set in default headers');
     } else {
       delete api.defaults.headers.common['Authorization'];
+      console.log('🔓 Auth token removed from default headers');
+    }
+  },
+
+  // Initialize auth token from localStorage
+  init: () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      authService.setAuthToken(token);
+      console.log('🔄 Auth token initialized from localStorage');
     }
   },
 
@@ -59,13 +73,15 @@ export const authService = {
     try {
       const response = await api.post('/auth/login', { email, password });
       
-      // Store token and user data
-      if (response.data.success && response.data.data.token) {
-        localStorage.setItem('authToken', response.data.data.token);
-        localStorage.setItem('userData', JSON.stringify(response.data.data.user));
+      // Store token and user data - Backend returns token and user directly in response.data
+      if (response.data.success && response.data.token) {
+        localStorage.setItem('authToken', response.data.token);
+        localStorage.setItem('userData', JSON.stringify(response.data.user));
         
         // Set token for future requests
-        authService.setAuthToken(response.data.data.token);
+        authService.setAuthToken(response.data.token);
+        
+        console.log('✅ Login successful, token stored:', response.data.token.substring(0, 20) + '...');
       }
       
       return response.data;
@@ -94,14 +110,23 @@ export const authService = {
   // Get current user
   getCurrentUser: async () => {
     try {
+      // Try to get from localStorage first (since profile endpoint may not exist)
+      const userData = localStorage.getItem('userData');
+      const token = localStorage.getItem('authToken');
+      
+      if (userData && token) {
+        console.log('✅ Getting user from localStorage');
+        return { 
+          success: true,
+          data: { user: JSON.parse(userData) } 
+        };
+      }
+      
+      // If localStorage doesn't have data, try API call
       const response = await api.get('/auth/profile');
       return response.data;
     } catch (error) {
-      // If API call fails, try to get from localStorage as fallback
-      const userData = localStorage.getItem('userData');
-      if (userData) {
-        return { data: { user: JSON.parse(userData) } };
-      }
+      console.log('❌ Failed to get current user:', error.message);
       throw error;
     }
   },
@@ -120,5 +145,8 @@ export const authService = {
     }
   },
 };
+
+// Initialize auth service on module load
+authService.init();
 
 export default api; 
