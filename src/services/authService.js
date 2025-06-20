@@ -57,40 +57,23 @@ export const authService = {
   // Login
   login: async (email, password) => {
     try {
-      // Mock login for development - replace with actual API call
-      if (email === 'admin@wildlife.com' && password === 'admin123') {
-        return {
-          data: {
-            user: {
-              id: 1,
-              email: 'admin@wildlife.com',
-              name: 'Admin User',
-              role: 'admin',
-              approved: true,
-            },
-            token: 'mock-admin-token-123',
-          },
-        };
-      } else if (email === 'researcher@wildlife.com' && password === 'researcher123') {
-        return {
-          data: {
-            user: {
-              id: 2,
-              email: 'researcher@wildlife.com',
-              name: 'Wildlife Researcher',
-              role: 'contributor',
-              approved: true,
-            },
-            token: 'mock-researcher-token-456',
-          },
-        };
-      } else {
-        throw new Error('Invalid credentials');
+      const response = await api.post('/auth/login', { email, password });
+      
+      // Store token and user data
+      if (response.data.success && response.data.data.token) {
+        localStorage.setItem('authToken', response.data.data.token);
+        localStorage.setItem('userData', JSON.stringify(response.data.data.user));
+        
+        // Set token for future requests
+        authService.setAuthToken(response.data.data.token);
       }
       
-      // Actual API call would be:
-      // return await api.post('/auth/login', { email, password });
+      return response.data;
     } catch (error) {
+      // Handle API error response
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
       throw error;
     }
   },
@@ -98,21 +81,12 @@ export const authService = {
   // Register (for admin to create new users)
   register: async (userData) => {
     try {
-      // Mock registration - replace with actual API call
-      return {
-        data: {
-          message: 'User registered successfully',
-          user: {
-            id: Date.now(),
-            ...userData,
-            approved: false,
-          },
-        },
-      };
-      
-      // Actual API call would be:
-      // return await api.post('/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
+      return response.data;
     } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
       throw error;
     }
   },
@@ -120,16 +94,14 @@ export const authService = {
   // Get current user
   getCurrentUser: async () => {
     try {
-      // Mock current user - replace with actual API call
+      const response = await api.get('/auth/profile');
+      return response.data;
+    } catch (error) {
+      // If API call fails, try to get from localStorage as fallback
       const userData = localStorage.getItem('userData');
       if (userData) {
         return { data: { user: JSON.parse(userData) } };
       }
-      throw new Error('No user data found');
-      
-      // Actual API call would be:
-      // return await api.get('/auth/me');
-    } catch (error) {
       throw error;
     }
   },
@@ -137,11 +109,12 @@ export const authService = {
   // Logout
   logout: async () => {
     try {
-      // Mock logout - replace with actual API call
-      return { data: { message: 'Logged out successfully' } };
+      // Clear local storage
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      authService.removeAuthToken();
       
-      // Actual API call would be:
-      // return await api.post('/auth/logout');
+      return { data: { message: 'Logged out successfully' } };
     } catch (error) {
       throw error;
     }
