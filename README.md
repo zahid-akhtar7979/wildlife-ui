@@ -1,70 +1,221 @@
-# Getting Started with Create React App
+# Wildlife Chronicles - Article Publishing Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A comprehensive React-based article publishing platform designed for wildlife geographers and researchers to share their conservation work and research findings with the public.
 
-## Available Scripts
+## 🌿 Project Overview
 
-In the project directory, you can run:
+Wildlife Chronicles is a specialized content management system that enables wildlife researchers to publish rich, media-enhanced articles about endangered species, conservation efforts, and wildlife research. The platform features role-based authentication, rich text editing, media management, and administrative oversight.
 
-### `npm start`
+## ✨ Key Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Public Features
+- **Homepage**: Browse and search published articles with beautiful card layouts
+- **Article Detail Pages**: Rich article viewing with embedded images, videos, and social sharing
+- **Search & Filter**: Search articles by keywords and filter by tags/categories
+- **Responsive Design**: Optimized for both desktop and mobile devices
+- **Nature-themed UI**: Beautiful forest green color scheme reflecting the wildlife mission
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Contributor Features
+- **Secure Authentication**: Role-based login system for approved contributors
+- **Dashboard**: Personal dashboard to manage articles and view statistics
+- **Rich Article Editor**: Create and edit articles with:
+  - Markdown-style text editing
+  - Drag & drop image upload (JPG, PNG, WebP)
+  - Video upload support (MP4, MOV, AVI up to 2 minutes)
+  - Tag management system
+  - Preview mode
+  - Draft/publish workflow
+- **Media Management**: Upload and organize images/videos with captions
+- **Article Management**: Edit, delete, publish/unpublish articles
 
-### `npm test`
+### Admin Features
+- **User Management**: Approve/reject contributor registrations
+- **Content Oversight**: Monitor and manage all published content
+- **Analytics Dashboard**: View platform statistics and user activity
+- **Role Management**: Assign admin and contributor roles
+- **System Settings**: Configure platform-wide settings
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 Technology Stack
 
-### `npm run build`
+- **Frontend**: React 19, Material-UI (MUI)
+- **Routing**: React Router DOM
+- **Form Management**: React Hook Form with Yup validation
+- **File Upload**: React Dropzone
+- **Date Handling**: date-fns
+- **HTTP Client**: Axios
+- **Styling**: Material-UI Theme with custom wildlife color palette
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 📦 Installation & Setup
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Installation Steps
 
-### `npm run eject`
+1. **Clone the repository** (if applicable):
+   ```bash
+   git clone <repository-url>
+   cd wildlife-articles
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+2. **Install dependencies**:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+3. **Start the development server**:
+   ```bash
+   npm start
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+4. **Open the application**:
+   Navigate to `http://localhost:3000` in your browser
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 🔐 Demo Credentials
 
-## Learn More
+For testing the application, use these demo accounts:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Admin Account
+- **Email**: `admin@wildlife.com`
+- **Password**: `admin123`
+- **Access**: Full administrative privileges
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Contributor Account
+- **Email**: `researcher@wildlife.com`
+- **Password**: `researcher123`
+- **Access**: Article creation and management
 
-### Code Splitting
+## 🗂️ Project Structure
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```
+wildlife-articles/
+├── public/                     # Static assets
+├── src/
+│   ├── components/
+│   │   ├── auth/              # Authentication components
+│   │   ├── articles/          # Article-related components
+│   │   ├── admin/             # Admin-specific components
+│   │   └── common/            # Shared components
+│   ├── pages/                 # Main page components
+│   │   ├── HomePage.js        # Public article listing
+│   │   ├── ArticleDetailPage.js # Article reading page
+│   │   ├── LoginPage.js       # Authentication
+│   │   ├── DashboardPage.js   # Contributor dashboard
+│   │   ├── CreateArticlePage.js # Article creation
+│   │   ├── EditArticlePage.js # Article editing
+│   │   └── AdminPage.js       # Administrative panel
+│   ├── context/
+│   │   └── AuthContext.js     # Authentication state management
+│   ├── services/
+│   │   ├── authService.js     # Authentication API calls
+│   │   └── articleService.js  # Article-related API calls
+│   ├── utils/                 # Utility functions
+│   └── assets/               # Images and styles
+├── package.json
+└── README.md
+```
 
-### Analyzing the Bundle Size
+## 🎨 Design Features
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Color Palette
+- **Primary**: Forest Green (#2e7d32)
+- **Secondary**: Light Green (#8bc34a)
+- **Background**: Light Nature (#f1f8e9)
+- **Text**: Dark Green tones for readability
 
-### Making a Progressive Web App
+### Typography
+- **Headers**: Bold, nature-inspired fonts
+- **Body**: Clean, readable Roboto font family
+- **Accent**: Gradient text effects for branding
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### UI Components
+- **Cards**: Elevated design with hover effects
+- **Buttons**: Rounded corners with smooth transitions
+- **Forms**: Clean inputs with validation feedback
+- **Navigation**: Responsive navbar with user avatars
 
-### Advanced Configuration
+## 📱 Responsive Design
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+The application is fully responsive and optimized for:
+- **Desktop**: Full-featured experience (1200px+)
+- **Tablet**: Adapted layouts (768px - 1199px)
+- **Mobile**: Touch-optimized interface (< 768px)
 
-### Deployment
+## 🔧 Key Components
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Authentication System
+- JWT-based authentication (mock implementation)
+- Role-based access control (Admin, Contributor)
+- Protected routes and permission checking
+- Automatic token refresh and session management
 
-### `npm run build` fails to minify
+### Article Management
+- Rich text editing with live preview
+- Multi-media support (images and videos)
+- Tag-based categorization
+- Draft/publish workflow
+- Social media sharing integration
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### Media Handling
+- Drag & drop file upload
+- Image optimization and resizing
+- Video thumbnail generation
+- Caption and alt-text management
+- File type and size validation
+
+### Search & Discovery
+- Real-time search functionality
+- Tag-based filtering
+- Featured article highlighting
+- Responsive grid layouts
+- Loading states and error handling
+
+## 🔮 Future Enhancements
+
+### Backend Integration
+- Replace mock APIs with real backend services
+- Database integration (PostgreSQL/MongoDB)
+- File storage service (AWS S3/CloudFront)
+- Email notification system
+
+### Advanced Features
+- **SEO Optimization**: Meta tags, structured data
+- **Analytics**: Article views, user engagement
+- **Comments**: Reader engagement system
+- **Newsletter**: Email subscription management
+- **Advanced Editor**: WYSIWYG editor with more formatting options
+- **Bulk Operations**: Mass article management
+- **API Documentation**: OpenAPI/Swagger integration
+
+### Performance Optimizations
+- **Image Optimization**: WebP conversion, lazy loading
+- **Code Splitting**: Route-based code splitting
+- **Caching**: Service worker for offline functionality
+- **CDN Integration**: Global content delivery
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- **Material-UI**: For the excellent React component library
+- **Unsplash**: For the beautiful wildlife photography used in demo articles
+- **React Community**: For the robust ecosystem and libraries
+
+## 📞 Support
+
+For support and questions, please reach out to the development team or create an issue in the repository.
+
+---
+
+**Wildlife Chronicles** - *Connecting conservation research with the world* 🌍🦎🐅🌳
