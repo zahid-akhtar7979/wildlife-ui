@@ -42,9 +42,78 @@ const schema = yup.object({
   tags: yup.array().min(1, 'At least one tag is required'),
 });
 
+// Simplified image card component with caption functionality
+const ImageCard = React.memo(({ item, onRemove, type, onChangeCaption }) => {
+  const handleRemove = React.useCallback(() => {
+    onRemove(item.id);
+  }, [item.id, onRemove]);
+
+  return (
+    <Card>
+      <Box position="relative">
+        <CardMedia
+          component={type === 'images' ? 'img' : 'video'}
+          height={150}
+          src={item.url}
+          sx={{ objectFit: 'cover' }}
+        />
+        <IconButton
+          size="small"
+          onClick={handleRemove}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }
+          }}
+        >
+          <Delete />
+        </IconButton>
+      </Box>
+      
+      {/* Caption input */}
+      <Box 
+        p={2} 
+        sx={{ 
+          backgroundColor: 'white',
+          borderRadius: 1,
+        }}
+      >
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Add caption..."
+          value={item.caption || ''}
+          onChange={(e) => onChangeCaption(item.id, e.target.value)}
+          variant="outlined"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'grey.300',
+              },
+              '&:hover fieldset': {
+                borderColor: 'primary.main',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: 'primary.main',
+              },
+            },
+            '& .MuiInputBase-input': {
+              padding: '8px 12px',
+            },
+          }}
+        />
+      </Box>
+    </Card>
+  );
+});
+
 const EditArticlePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [loadingArticle, setLoadingArticle] = useState(true);
@@ -130,9 +199,9 @@ const EditArticlePage = () => {
           const newImage = {
             id: Date.now() + Math.random(),
             url: uploadData.url,
-            caption: '',
             alt: file.name,
             file: file,
+            caption: ''
           };
           setImages(prev => [...prev, newImage]);
         } catch (err) {
@@ -158,9 +227,9 @@ const EditArticlePage = () => {
           const newVideo = {
             id: Date.now() + Math.random(),
             url: uploadData.url,
-            caption: '',
             thumbnail: uploadData.thumbnail || uploadData.url,
             file: file,
+            caption: ''
           };
           setVideos(prev => [...prev, newVideo]);
         } catch (err) {
@@ -189,17 +258,19 @@ const EditArticlePage = () => {
     setVideos(videos.filter(vid => vid.id !== videoId));
   };
 
-  const handleImageCaptionChange = (imageId, caption) => {
-    setImages(images.map(img => 
+  // Handle image caption change - update the actual image object
+  const handleImageCaptionChange = useCallback((imageId, caption) => {
+    setImages(prev => prev.map(img => 
       img.id === imageId ? { ...img, caption } : img
     ));
-  };
+  }, []);
 
-  const handleVideoCaptionChange = (videoId, caption) => {
-    setVideos(videos.map(vid => 
+  // Handle video caption change - update the actual video object
+  const handleVideoCaptionChange = useCallback((videoId, caption) => {
+    setVideos(prev => prev.map(vid => 
       vid.id === videoId ? { ...vid, caption } : vid
     ));
-  };
+  }, []);
 
   const onSubmit = async (data, publish = null) => {
     try {
@@ -233,7 +304,7 @@ const EditArticlePage = () => {
     }
   };
 
-  const MediaUploadZone = ({ title, dropzone, items, onRemove, onCaptionChange, type }) => (
+  const MediaUploadZone = ({ title, dropzone, items, onRemove, type, onCaptionChange }) => (
     <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>
         {title}
@@ -243,13 +314,18 @@ const EditArticlePage = () => {
         {...dropzone.getRootProps()}
         sx={{
           border: '2px dashed',
-          borderColor: 'primary.main',
+          borderColor: dropzone.isDragActive ? 'primary.main' : 'grey.300',
           borderRadius: 2,
           p: 3,
           textAlign: 'center',
           cursor: 'pointer',
           mb: 2,
           backgroundColor: dropzone.isDragActive ? 'action.hover' : 'transparent',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            borderColor: 'primary.main',
+            backgroundColor: 'action.hover',
+          }
         }}
       >
         <input {...dropzone.getInputProps()} />
@@ -263,7 +339,7 @@ const EditArticlePage = () => {
         <Typography variant="caption" color="text.secondary">
           {type === 'images' 
             ? 'Supported: JPG, PNG, WebP (max 5MB each)' 
-            : 'Supported: MP4, MOV, AVI (max 50MB each, 2min duration)'
+            : 'Supported: MP4, MOV, AVI (max 50MB each)'
           }
         </Typography>
       </Box>
@@ -272,38 +348,12 @@ const EditArticlePage = () => {
         <Grid container spacing={2}>
           {items.map((item) => (
             <Grid item xs={12} sm={6} md={4} key={item.id}>
-              <Card>
-                <Box position="relative">
-                  <CardMedia
-                    component={type === 'images' ? 'img' : 'video'}
-                    height={150}
-                    src={item.url}
-                    sx={{ objectFit: 'cover' }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => onRemove(item.id)}
-                    sx={{
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      backgroundColor: 'rgba(255,255,255,0.8)',
-                      '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }
-                    }}
-                  >
-                    <Delete />
-                  </IconButton>
-                </Box>
-                <Box p={1}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Add caption..."
-                    value={item.caption}
-                    onChange={(e) => onCaptionChange(item.id, e.target.value)}
-                  />
-                </Box>
-              </Card>
+              <ImageCard
+                item={item}
+                onRemove={onRemove}
+                type={type}
+                onChangeCaption={onCaptionChange}
+              />
             </Grid>
           ))}
         </Grid>
@@ -334,11 +384,6 @@ const EditArticlePage = () => {
             alt={images[0].alt}
             style={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 8 }}
           />
-          {images[0].caption && (
-            <Typography variant="caption" display="block" sx={{ mt: 1, textAlign: 'center' }}>
-              {images[0].caption}
-            </Typography>
-          )}
         </Box>
       )}
 
@@ -464,8 +509,8 @@ const EditArticlePage = () => {
                 dropzone={imageDropzone}
                 items={images}
                 onRemove={handleRemoveImage}
-                onCaptionChange={handleImageCaptionChange}
                 type="images"
+                onCaptionChange={handleImageCaptionChange}
               />
 
               <MediaUploadZone
@@ -473,8 +518,8 @@ const EditArticlePage = () => {
                 dropzone={videoDropzone}
                 items={videos}
                 onRemove={handleRemoveVideo}
-                onCaptionChange={handleVideoCaptionChange}
                 type="videos"
+                onCaptionChange={handleVideoCaptionChange}
               />
             </Grid>
 
