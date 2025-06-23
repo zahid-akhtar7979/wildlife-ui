@@ -43,19 +43,29 @@ const ArticleDetailPage = () => {
   useEffect(() => {
     const fetchArticle = async () => {
       try {
+        console.log('🔍 ArticleDetailPage - Fetching article with ID:', id);
         setLoading(true);
         const response = await articleService.getArticleById(id);
+        console.log('📦 ArticleDetailPage - API Response:', response);
+        console.log('📄 ArticleDetailPage - Article data:', response.data?.article);
         setArticle(response.data.article);
+        console.log('✅ ArticleDetailPage - Article set successfully');
       } catch (err) {
+        console.error('❌ ArticleDetailPage - Error fetching article:', err);
+        console.error('❌ ArticleDetailPage - Error details:', err.response || err.message);
         setError('Failed to load article. Please try again.');
-        console.error('Error fetching article:', err);
       } finally {
         setLoading(false);
+        console.log('🏁 ArticleDetailPage - Loading finished');
       }
     };
 
+    console.log('🚀 ArticleDetailPage - useEffect triggered with ID:', id);
     if (id) {
       fetchArticle();
+    } else {
+      console.log('⚠️ ArticleDetailPage - No ID provided');
+      setLoading(false);
     }
   }, [id]);
 
@@ -212,6 +222,7 @@ const ArticleDetailPage = () => {
   );
 
   if (loading) {
+    console.log('🔄 ArticleDetailPage - Rendering loading state');
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Skeleton variant="text" sx={{ fontSize: '2rem', mb: 2 }} />
@@ -224,10 +235,13 @@ const ArticleDetailPage = () => {
   }
 
   if (error || !article) {
+    console.log('❌ ArticleDetailPage - Rendering error state');
+    console.log('   - Error:', error);
+    console.log('   - Article:', article);
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Alert severity="error" sx={{ mb: 4 }}>
-          {error}
+          {error || 'Article not found'}
         </Alert>
         <Button variant="contained" onClick={() => navigate('/')}>
           Back to Articles
@@ -235,6 +249,16 @@ const ArticleDetailPage = () => {
       </Container>
     );
   }
+
+  console.log('✅ ArticleDetailPage - Rendering article content');
+  console.log('📄 Article data for rendering:', {
+    id: article?.id,
+    title: article?.title,
+    content: article?.content ? 'HAS CONTENT' : 'NO CONTENT',
+    author: article?.author,
+    tags: article?.tags,
+    images: article?.images?.length || 0
+  });
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -262,11 +286,11 @@ const ArticleDetailPage = () => {
         <Box display="flex" alignItems="center" gap={3} mb={3}>
           <Box display="flex" alignItems="center" gap={1}>
             <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}>
-              {article.author.name.charAt(0)}
+              {article.author?.name?.charAt(0) || 'A'}
             </Avatar>
             <Box>
               <Typography variant="body2" fontWeight="bold">
-                {article.author.name}
+                {article.author?.name || 'Unknown Author'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Wildlife Researcher
@@ -293,7 +317,7 @@ const ArticleDetailPage = () => {
 
         {/* Tags */}
         <Box display="flex" flexWrap="wrap" gap={1} mb={3}>
-          {article.tags.map((tag) => (
+          {(article.tags || []).map((tag) => (
             <Chip
               key={tag}
               label={tag}
@@ -409,11 +433,11 @@ const ArticleDetailPage = () => {
         </Typography>
         <Box display="flex" alignItems="center" gap={2}>
           <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}>
-            {article.author.name.charAt(0)}
+            {article.author?.name?.charAt(0) || 'A'}
           </Avatar>
           <Box>
             <Typography variant="body1" fontWeight="bold">
-              {article.author.name}
+              {article.author?.name || 'Unknown Author'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Wildlife researcher and conservationist dedicated to protecting endangered species 

@@ -9,8 +9,7 @@ import {
   MenuItem,
   Box,
   Divider,
-  TextField,
-  InputAdornment,
+
   useTheme,
   useMediaQuery,
   Drawer,
@@ -24,7 +23,7 @@ import {
   Menu as MenuIcon,
   AccountCircle,
   Logout,
-  Search,
+
   EditOutlined,
   Close,
   Park,
@@ -35,13 +34,14 @@ import { useAuth } from '../../contexts/AuthContext';
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const { isAuthenticated, user, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+
 
   const handleUserMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -67,6 +67,8 @@ const Navbar = () => {
     handleUserMenuClose();
     setMobileDrawerOpen(false);
   };
+
+
 
   const isActivePage = (path) => {
     return location.pathname === path;
@@ -126,29 +128,7 @@ const Navbar = () => {
           </IconButton>
         </Box>
 
-        {/* Mobile Search */}
-        <Box mb={3}>
-          <TextField
-            fullWidth
-            placeholder="Search articles..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search sx={{ color: '#9ca3af' }} />
-                </InputAdornment>
-              ),
-              sx: {
-                borderRadius: '8px',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#d1d5db'
-                }
-              }
-            }}
-          />
-        </Box>
+
 
         {/* Mobile Navigation */}
         <List sx={{ p: 0 }}>
@@ -157,7 +137,13 @@ const Navbar = () => {
               onClick={() => handleNavigation('/')}
               sx={{ borderRadius: '6px', mb: 1 }}
             >
-              <ListItemText primary="Articles" />
+              <ListItemText 
+                primary="Articles" 
+                primaryTypographyProps={{
+                  fontWeight: 700,
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              />
             </ListItemButton>
           </ListItem>
           
@@ -168,7 +154,13 @@ const Navbar = () => {
                   onClick={() => handleNavigation('/dashboard')}
                   sx={{ borderRadius: '6px', mb: 1 }}
                 >
-                  <ListItemText primary="Dashboard" />
+                  <ListItemText 
+                    primary="Dashboard" 
+                    primaryTypographyProps={{
+                      fontWeight: 700,
+                      fontFamily: 'Inter, sans-serif',
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
               <ListItem disablePadding>
@@ -183,7 +175,7 @@ const Navbar = () => {
               <Divider sx={{ my: 2 }} />
               
               <Box sx={{ px: 2, py: 1, backgroundColor: '#f9fafb', borderRadius: '6px', mb: 2 }}>
-                <Typography variant="body2" fontWeight={500}>{user?.name}</Typography>
+                <Typography variant="body2" fontWeight={700}>{user?.name}</Typography>
                 <Typography variant="caption" color="text.secondary">{user?.email}</Typography>
               </Box>
               
@@ -231,7 +223,7 @@ const Navbar = () => {
         }}
       >
         <Toolbar sx={{ height: 64, px: { xs: 2, sm: 3, lg: 4 } }}>
-          {/* Logo */}
+          {/* Logo - Left Side */}
           <Box 
             display="flex" 
             alignItems="center" 
@@ -252,96 +244,62 @@ const Navbar = () => {
             </Typography>
           </Box>
 
-          {/* Search Bar - Desktop */}
+          {/* Desktop Navigation - Right Side */}
           {!isMobile && (
-            <Box sx={{ flex: 1, maxWidth: 512, mx: 4 }}>
-              <TextField
-                fullWidth
-                placeholder="Search articles, species, regions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: '#9ca3af' }} />
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    borderRadius: '8px',
-                    backgroundColor: 'white',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#d1d5db'
+            <Box display="flex" alignItems="center" gap={4} sx={{ ml: 'auto' }}>
+                              <Button 
+                  onClick={() => navigate('/')}
+                  sx={{ 
+                    color: isActivePage('/') ? '#2e7d32' : '#374151',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.875rem',
+                    position: 'relative',
+                    '&:hover': {
+                      backgroundColor: 'transparent',
+                      color: '#2e7d32'
                     },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9ca3af'
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#2e7d32',
-                      borderWidth: '2px'
-                    }
-                  }
-                }}
-              />
-            </Box>
-          )}
-
-          {/* Desktop Navigation */}
-          {!isMobile && (
-            <Box display="flex" alignItems="center" gap={4}>
-              <Button 
-                onClick={() => navigate('/')}
-                sx={{ 
-                  color: isActivePage('/') ? '#2e7d32' : '#374151',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  fontSize: '0.875rem',
-                  position: 'relative',
-                  '&:hover': {
-                    backgroundColor: 'transparent',
-                    color: '#2e7d32'
-                  },
-                  '&::after': isActivePage('/') ? {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: -8,
-                    left: 0,
-                    right: 0,
-                    height: 2,
-                    backgroundColor: '#2e7d32'
-                  } : {}
-                }}
-              >
-                Articles
-              </Button>
+                    '&::after': isActivePage('/') ? {
+                      content: '""',
+                      position: 'absolute',
+                      bottom: -8,
+                      left: 0,
+                      right: 0,
+                      height: 2,
+                      backgroundColor: '#2e7d32'
+                    } : {}
+                  }}
+                >
+                  Articles
+                </Button>
               
               {isAuthenticated && (
                 <>
-                  <Button 
-                    onClick={() => navigate('/dashboard')}
-                    sx={{ 
-                      color: isActivePage('/dashboard') ? '#2e7d32' : '#374151',
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      position: 'relative',
-                      '&:hover': {
-                        backgroundColor: 'transparent',
-                        color: '#2e7d32'
-                      },
-                      '&::after': isActivePage('/dashboard') ? {
-                        content: '""',
-                        position: 'absolute',
-                        bottom: -8,
-                        left: 0,
-                        right: 0,
-                        height: 2,
-                        backgroundColor: '#2e7d32'
-                      } : {}
-                    }}
-                  >
-                    Dashboard
-                  </Button>
+                                      <Button 
+                      onClick={() => navigate('/dashboard')}
+                      sx={{ 
+                        color: isActivePage('/dashboard') ? '#2e7d32' : '#374151',
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                        position: 'relative',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                          color: '#2e7d32'
+                        },
+                        '&::after': isActivePage('/dashboard') ? {
+                          content: '""',
+                          position: 'absolute',
+                          bottom: -8,
+                          left: 0,
+                          right: 0,
+                          height: 2,
+                          backgroundColor: '#2e7d32'
+                        } : {}
+                      }}
+                    >
+                      Dashboard
+                    </Button>
                   
                   <Button 
                     onClick={() => navigate('/create-article')}
@@ -363,23 +321,23 @@ const Navbar = () => {
                     Write Article
                   </Button>
                   
-                  {/* User Menu */}
-                  <Button
-                    onClick={handleUserMenuOpen}
-                    startIcon={<AccountCircle />}
-                    sx={{ 
-                      color: '#374151',
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      '&:hover': {
-                        backgroundColor: 'transparent',
-                        color: '#2e7d32'
-                      }
-                    }}
-                  >
-                    {user?.name}
-                  </Button>
+                                      {/* User Menu */}
+                    <Button
+                      onClick={handleUserMenuOpen}
+                      startIcon={<AccountCircle />}
+                      sx={{ 
+                        color: '#374151',
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                          color: '#2e7d32'
+                        }
+                      }}
+                    >
+                      {user?.name}
+                    </Button>
                 </>
               )}
               

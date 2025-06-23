@@ -17,6 +17,7 @@ import {
   ListItemText,
   CircularProgress,
   Alert,
+  Pagination,
 } from '@mui/material';
 import {
   Search,
@@ -26,8 +27,8 @@ import {
   Tag,
   ArrowForward,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { format, parseISO, isValid } from 'date-fns';
 import Footer from '../components/common/Footer';
 import { articleService } from '../services/articleService';
 
@@ -54,27 +55,69 @@ const formatSafeDate = (article, formatString = 'MMM d, yyyy') => {
   }
 };
 
-
-
 const HomePage = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1);
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Single useEffect to fetch data once on mount
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pages: 1,
+    total: 0,
+    hasNext: false,
+    hasPrev: false
+  });
+
+  // Update search params when state changes
+  useEffect(() => {
+    const params = {};
+    if (searchQuery) params.search = searchQuery;
+    if (selectedCategory) params.category = selectedCategory;
+    if (currentPage > 1) params.page = currentPage.toString();
+    
+    setSearchParams(params);
+  }, [searchQuery, selectedCategory, currentPage, setSearchParams]);
+
+  // Sync state with URL params when they change
+  useEffect(() => {
+    const urlSearch = searchParams.get('search') || '';
+    const urlCategory = searchParams.get('category') || '';
+    const urlPage = parseInt(searchParams.get('page')) || 1;
+    
+    if (urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+    }
+    if (urlCategory !== selectedCategory) {
+      setSelectedCategory(urlCategory);
+    }
+    if (urlPage !== currentPage) {
+      setCurrentPage(urlPage);
+    }
+  }, [searchParams]);
+
+  // Fetch articles when search/category/page changes
   useEffect(() => {
     let isCancelled = false;
     
     const fetchData = async () => {
       try {
-        console.log('🏠 HomePage - Starting fetchData...');
+        console.log('🏠 HomePage - Starting fetchData with filters:', { searchQuery, selectedCategory, currentPage });
         setLoading(true);
         
+        const filters = {
+          page: currentPage,
+          limit: 10 // Show 10 articles per page
+        };
+        if (searchQuery) filters.search = searchQuery;
+        if (selectedCategory) filters.category = selectedCategory;
+        
         const [articlesResponse, categoriesResponse] = await Promise.all([
-          articleService.getArticles(),
+          articleService.getArticles(filters),
           articleService.getCategories()
         ]);
         
@@ -83,12 +126,21 @@ const HomePage = () => {
         if (!isCancelled) {
           const articles = articlesResponse.data?.articles || [];
           const categories = categoriesResponse.data?.categories || [];
+          const paginationData = articlesResponse.data?.pagination || {
+            current: 1,
+            pages: 1,
+            total: 0,
+            hasNext: false,
+            hasPrev: false
+          };
           
           console.log('🏠 HomePage - Articles found:', articles.length);
           console.log('🏠 HomePage - Categories found:', categories.length);
+          console.log('🏠 HomePage - Pagination data:', paginationData);
           
           setArticles(articles);
           setCategories(categories);
+          setPagination(paginationData);
           setError(null);
         }
       } catch (err) {
@@ -96,7 +148,6 @@ const HomePage = () => {
         if (!isCancelled) {
           setError('Failed to load articles. Please try again later.');
           setArticles([]);
-          setCategories([]);
         }
       } finally {
         if (!isCancelled) {
@@ -110,44 +161,58 @@ const HomePage = () => {
     return () => {
       isCancelled = true;
     };
-  }, []); // Empty dependency array - run only once
+  }, [searchQuery, selectedCategory, currentPage]); // Re-fetch when search/category/page changes
 
-  const filteredArticles = useMemo(() => {
-    let filtered = articles;
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(article => 
-        (article.title || '').toLowerCase().includes(query) ||
-        (article.excerpt || '').toLowerCase().includes(query) ||
-        (article.tags || []).some(tag => tag.toLowerCase().includes(query)) ||
-        (article.author?.name || '').toLowerCase().includes(query)
-      );
-    }
+  // Handle search submission
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setCurrentPage(1); // Reset to first page when submitting search
+  };
 
-    if (selectedCategory) {
-      filtered = filtered.filter(article => article.category === selectedCategory);
-    }
+  // Handle category change
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    setCurrentPage(1); // Reset to first page when changing category
+  };
 
-    return filtered.sort((a, b) => 
-      getValidDate(b).getTime() - getValidDate(a).getTime()
-    );
-  }, [searchQuery, selectedCategory, articles]);
+  // Handle pagination change
+  const handlePageChange = (event, page) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // No need for client-side filtering since we're using backend search
+  const displayArticles = articles;
 
   const ArticleCard = ({ article }) => (
     <Card 
       elevation={0}
+      onClick={(e) => {
+        // Prevent navigation if clicking on buttons or interactive elements
+        if (e.target.closest('button') || e.target.closest('[role="button"]')) {
+          return;
+        }
+        navigate(`/article/${article.id}`);
+      }}
       sx={{ 
         display: { xs: 'block', md: 'flex' },
         borderRadius: '16px',
         border: '1px solid #e8f5e8',
         overflow: 'hidden',
+        cursor: 'pointer',
         transition: 'all 0.3s ease',
         backgroundColor: 'white',
         '&:hover': {
-          boxShadow: '0 8px 32px rgba(46, 125, 50, 0.12)',
-          transform: 'translateY(-2px)',
-          borderColor: '#c8e6c9',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.12)',
+          transform: 'translateY(-4px)',
+          borderColor: 'transparent',
         },
         mb: 4,
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -238,7 +303,10 @@ const HomePage = () => {
             '&:hover': { color: '#2e7d32' },
             transition: 'color 0.2s ease',
           }}
-          onClick={() => navigate(`/article/${article.id}`)}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/article/${article.id}`);
+          }}
         >
           {article.title}
         </Typography>
@@ -267,6 +335,7 @@ const HomePage = () => {
             <Chip
               label={article.category}
               size="small"
+              onClick={(e) => e.stopPropagation()}
               sx={{ 
                 backgroundColor: '#e8f5e8',
                 color: '#2e7d32',
@@ -274,6 +343,7 @@ const HomePage = () => {
                 fontWeight: 600,
                 fontFamily: 'Inter, sans-serif',
                 height: 26,
+                cursor: 'default',
                 '& .MuiChip-label': {
                   px: 1.5,
                 },
@@ -286,6 +356,7 @@ const HomePage = () => {
                 label={tag}
                 size="small"
                 variant="outlined"
+                onClick={(e) => e.stopPropagation()}
                 sx={{ 
                   fontSize: '0.75rem',
                   height: 26,
@@ -293,6 +364,7 @@ const HomePage = () => {
                   color: '#6b7280',
                   fontFamily: 'Inter, sans-serif',
                   fontWeight: 500,
+                  cursor: 'default',
                   '& .MuiChip-label': {
                     px: 1,
                   },
@@ -317,7 +389,10 @@ const HomePage = () => {
           <Button 
             variant="text"
             endIcon={<ArrowForward sx={{ fontSize: 18 }} />}
-            onClick={() => navigate(`/article/${article.id}`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/article/${article.id}`);
+            }}
             sx={{ 
               color: '#2e7d32',
               textTransform: 'none',
@@ -351,9 +426,9 @@ const HomePage = () => {
       {/* Hero Section */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
+          background: 'linear-gradient(to right, #14532d 0%, #0f2419 100%)',
           color: 'white',
-          py: { xs: 8, md: 12 },
+          py: { xs: 6, md: 8 },
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -372,7 +447,7 @@ const HomePage = () => {
         />
         
         <Container maxWidth="lg" sx={{ position: 'relative' }}>
-          <Box textAlign="center" mb={6}>
+          <Box textAlign="center" mb={5}>
             <Typography 
               variant="h1" 
               component="h1" 
@@ -407,41 +482,43 @@ const HomePage = () => {
 
           {/* Hero Search Bar */}
           <Box display="flex" justifyContent="center">
-            <TextField
-              placeholder="Search articles, species, regions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search sx={{ color: '#9ca3af', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-                sx: {
-                  backgroundColor: 'white',
-                  borderRadius: '12px',
-                  width: { xs: '90vw', sm: '500px' },
-                  maxWidth: '500px',
-                  fontSize: '1.1rem',
-                  fontFamily: 'Inter, sans-serif',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    border: 'none'
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    border: 'none'
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    border: '2px solid #2e7d32',
-                    boxShadow: '0 0 0 4px rgba(46, 125, 50, 0.1)',
-                  },
-                  '& input': {
-                    py: 2,
+            <form onSubmit={handleSearchSubmit} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <TextField
+                placeholder="Search articles, species, regions..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ color: '#9ca3af', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    width: { xs: '90vw', sm: '500px' },
+                    maxWidth: '500px',
+                    fontSize: '1.1rem',
                     fontFamily: 'Inter, sans-serif',
-                  },
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-                }
-              }}
-            />
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      border: 'none'
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      border: 'none'
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid #d1d5db',
+                      boxShadow: '0 0 0 3px rgba(0, 0, 0, 0.05)',
+                    },
+                    '& input': {
+                      py: 2,
+                      fontFamily: 'Inter, sans-serif',
+                    },
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                  }
+                }}
+              />
+            </form>
           </Box>
         </Container>
       </Box>
@@ -483,7 +560,7 @@ const HomePage = () => {
                 position: 'sticky',
                 top: 32,
                 border: '1px solid #e8f5e8',
-                boxShadow: '0 4px 20px rgba(46, 125, 50, 0.08)',
+                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
               }}
             >
               <Box sx={{ 
@@ -507,7 +584,7 @@ const HomePage = () => {
                 <ListItem disablePadding>
                   <ListItemButton
                     selected={selectedCategory === ''}
-                    onClick={() => setSelectedCategory('')}
+                    onClick={() => handleCategoryChange('')}
                     sx={{
                       py: 2,
                       px: 3,
@@ -525,8 +602,8 @@ const HomePage = () => {
                       transition: 'all 0.2s ease',
                     }}
                   >
-                                      <ListItemText 
-                    primary={`All Articles (${articles.length})`}
+                    <ListItemText 
+                      primary={`All Articles`}
                       primaryTypographyProps={{
                         fontSize: '0.95rem',
                         fontFamily: 'Inter, sans-serif',
@@ -535,51 +612,67 @@ const HomePage = () => {
                     />
                   </ListItemButton>
                 </ListItem>
-                {categories.map((category) => {
-                  const count = articles.filter(a => a.category === category).length;
-                  if (count === 0) return null;
-                  
-                  return (
-                    <ListItem key={category} disablePadding>
-                      <ListItemButton
-                        selected={selectedCategory === category}
-                        onClick={() => setSelectedCategory(category)}
-                        sx={{
-                          py: 2,
-                          px: 3,
-                          '&.Mui-selected': {
-                            backgroundColor: '#e8f5e8',
-                            borderRight: '3px solid #2e7d32',
-                            '& .MuiListItemText-primary': {
-                              fontWeight: 600,
-                              color: '#2e7d32'
-                            }
-                          },
-                          '&:hover': {
-                            backgroundColor: '#f0f9f0'
-                          },
-                          transition: 'all 0.2s ease',
+                {categories.map((category) => (
+                  <ListItem key={category} disablePadding>
+                    <ListItemButton
+                      selected={selectedCategory === category}
+                      onClick={() => handleCategoryChange(category)}
+                      sx={{
+                        py: 2,
+                        px: 3,
+                        '&.Mui-selected': {
+                          backgroundColor: '#e8f5e8',
+                          borderRight: '3px solid #2e7d32',
+                          '& .MuiListItemText-primary': {
+                            fontWeight: 600,
+                            color: '#2e7d32'
+                          }
+                        },
+                        '&:hover': {
+                          backgroundColor: '#f0f9f0'
+                        },
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <ListItemText 
+                        primary={category}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem',
+                          fontFamily: 'Inter, sans-serif',
+                          fontWeight: 500,
                         }}
-                      >
-                        <ListItemText 
-                          primary={`${category} (${count})`}
-                          primaryTypographyProps={{
-                            fontSize: '0.95rem',
-                            fontFamily: 'Inter, sans-serif',
-                            fontWeight: 500,
-                          }}
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  );
-                })}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
               </List>
             </Paper>
           </Box>
 
           {/* Articles */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            {filteredArticles.length === 0 ? (
+            {/* Results Summary */}
+            {!loading && (
+              <Box mb={3}>
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    color: '#6b7280',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                  }}
+                >
+                  {searchQuery || selectedCategory ? (
+                    `Found ${pagination.total} articles${searchQuery ? ` for "${searchQuery}"` : ''}${selectedCategory ? ` in ${selectedCategory}` : ''}`
+                  ) : (
+                    `Showing ${articles.length} of ${pagination.total} articles`
+                  )}
+                  {pagination.pages > 1 && ` • Page ${pagination.current} of ${pagination.pages}`}
+                </Typography>
+              </Box>
+            )}
+
+            {displayArticles.length === 0 && !loading ? (
               <Box textAlign="center" py={12}>
                 <Search sx={{ fontSize: 64, color: '#d1d5db', mb: 2 }} />
                 <Typography 
@@ -591,7 +684,7 @@ const HomePage = () => {
                     fontWeight: 600,
                   }}
                 >
-                  No articles found
+                  {searchQuery || selectedCategory ? 'No articles found' : 'No articles available'}
                 </Typography>
                 <Typography 
                   variant="body1" 
@@ -600,18 +693,65 @@ const HomePage = () => {
                     fontFamily: 'Inter, sans-serif',
                   }}
                 >
-                  Try adjusting your search terms or browse different categories.
+                  {searchQuery || selectedCategory 
+                    ? 'Try adjusting your search terms or browse different categories.'
+                    : 'Articles will appear here once they are published.'
+                  }
                 </Typography>
               </Box>
             ) : (
-              <Box>
-                {filteredArticles.map((article) => (
-                  <ArticleCard key={article.id} article={article} />
-                ))}
-              </Box>
-                         )}
-           </Box>
-         </Box>
+              <>
+                <Box>
+                  {displayArticles.map((article) => (
+                    <ArticleCard key={article.id} article={article} />
+                  ))}
+                </Box>
+                
+                {/* Pagination */}
+                {pagination.pages > 1 && (
+                  <Box display="flex" justifyContent="center" mt={6} mb={4}>
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2,
+                        borderRadius: '12px',
+                        border: '1px solid #e8f5e8',
+                        backgroundColor: 'white'
+                      }}
+                    >
+                      <Pagination
+                        count={pagination.pages}
+                        page={currentPage}
+                        onChange={handlePageChange}
+                        color="primary"
+                        size="large"
+                        shape="rounded"
+                        showFirstButton
+                        showLastButton
+                        sx={{
+                          '& .MuiPaginationItem-root': {
+                            fontFamily: 'Inter, sans-serif',
+                            fontWeight: 500,
+                          },
+                          '& .MuiPaginationItem-page': {
+                            borderRadius: '8px',
+                          },
+                          '& .MuiPaginationItem-page.Mui-selected': {
+                            backgroundColor: '#2e7d32',
+                            color: 'white',
+                            '&:hover': {
+                              backgroundColor: '#1b5e20',
+                            }
+                          }
+                        }}
+                      />
+                    </Paper>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
+        </Box>
         )}
       </Container>
 

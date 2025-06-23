@@ -50,9 +50,14 @@ export const articleService = {
   },
 
   // Get articles by author (for contributor dashboard)
-  getArticlesByAuthor: async (authorId) => {
+  getArticlesByAuthor: async (authorId, filters = {}) => {
     try {
-      const response = await api.get(`/articles/author/${authorId}`);
+      const params = {
+        page: filters.page || 1,
+        limit: filters.limit || 10
+      };
+      
+      const response = await api.get(`/articles/author/${authorId}`, { params });
       return response.data;
     } catch (error) {
       if (error.response?.data?.message) {

@@ -7,7 +7,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActions,
   Button,
   Chip,
   IconButton,
@@ -22,7 +21,7 @@ import {
   DialogActions,
   LinearProgress,
   Avatar,
-  Divider,
+  Pagination,
 } from '@mui/material';
 import {
   Add,
@@ -55,6 +54,14 @@ const DashboardPage = () => {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pages: 1,
+    total: 0,
+    hasNext: false,
+    hasPrev: false
+  });
   const [stats, setStats] = useState({
     total: 0,
     published: 0,
@@ -65,28 +72,41 @@ const DashboardPage = () => {
     monthlyGrowth: 23.8,
   });
 
-  const fetchArticles = useCallback(async () => {
+  const fetchArticles = useCallback(async (page = 1) => {
     if (!user?.id) return;
     
     try {
       setLoading(true);
-      const response = await articleService.getArticlesByAuthor(user.id);
+      
+      const response = await articleService.getArticlesByAuthor(user.id, {
+        page: page,
+        limit: 10
+      });
+      
       const userArticles = response.data.articles;
+      const paginationData = response.data.pagination || {
+        current: 1,
+        pages: 1,
+        total: 0,
+        hasNext: false,
+        hasPrev: false
+      };
       
       console.log('📄 Loaded articles in dashboard:', userArticles);
       console.log('📄 Number of articles:', userArticles?.length);
+      console.log('📄 Pagination data:', paginationData);
       console.log('📄 First article structure:', userArticles?.[0]);
       
-      setArticles(userArticles);
-      setStats({
-        total: userArticles.length,
-        published: userArticles.filter(a => a.published).length,
-        drafts: userArticles.filter(a => !a.published).length,
-        totalViews: 2847,
-        avgReadTime: 8.5,
-        engagementRate: 84.2,
-        monthlyGrowth: 23.8,
-      });
+      setArticles(userArticles || []);
+      setPagination(paginationData);
+      
+      // Update stats with total from pagination data
+      setStats(prevStats => ({
+        ...prevStats,
+        total: paginationData?.total || 0,
+        published: (userArticles || []).filter(a => a.published).length, // Current page count
+        drafts: (userArticles || []).filter(a => !a.published).length, // Current page count
+      }));
     } catch (err) {
       setError('Failed to load your articles. Please try again.');
       console.error('Error fetching articles:', err);
@@ -97,9 +117,19 @@ const DashboardPage = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchArticles();
+      fetchArticles(currentPage);
     }
-  }, [fetchArticles, user?.id]);
+  }, [fetchArticles, user?.id, currentPage]);
+
+  // Handle pagination change
+  const handlePageChange = (event, page) => {
+    setCurrentPage(page);
+    // Scroll to articles section when page changes
+    const articlesSection = document.querySelector('#articles-section');
+    if (articlesSection) {
+      articlesSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const handleMenuOpen = (event, article) => {
     console.log('🔗 Menu opened for article:', article);
@@ -137,20 +167,11 @@ const DashboardPage = () => {
     }
     
     try {
-      const response = await articleService.deleteArticle(selectedArticle.id);
+      await articleService.deleteArticle(selectedArticle.id);
       console.log('✅ Article deleted successfully!');
       
-      // Update local state to remove the deleted article
-      setArticles(articles.filter(article => article.id !== selectedArticle.id));
-      
-      // Update stats
-      const updatedArticles = articles.filter(article => article.id !== selectedArticle.id);
-      setStats(prevStats => ({
-        ...prevStats,
-        total: updatedArticles.length,
-        published: updatedArticles.filter(a => a.published).length,
-        drafts: updatedArticles.filter(a => !a.published).length,
-      }));
+      // Refresh the current page of articles
+      await fetchArticles(currentPage);
       
       setDeleteDialogOpen(false);
       setSelectedArticle(null);
@@ -169,11 +190,8 @@ const DashboardPage = () => {
   const handlePublish = async () => {
     try {
       await articleService.publishArticle(selectedArticle.id);
-      setArticles(articles.map(article => 
-        article.id === selectedArticle.id 
-          ? { ...article, published: true, publishDate: new Date().toISOString() }
-          : article
-      ));
+      // Refresh the current page of articles
+      await fetchArticles(currentPage);
     } catch (err) {
       console.error('Error publishing article:', err);
     }
@@ -306,60 +324,66 @@ const DashboardPage = () => {
     </Card>
   );
 
-  const PremiumArticleCard = ({ article }) => (
-    <Card 
-      elevation={0}
-      sx={{ 
-        height: '100%', 
-        display: 'flex',
-        flexDirection: 'column',
-        borderRadius: '20px',
-        border: '1px solid #e8f5e8',
-        background: 'white',
-        overflow: 'hidden',
-        position: 'relative',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        '&:hover': { 
-          transform: 'translateY(-8px)',
-          boxShadow: '0 25px 50px rgba(46, 125, 50, 0.15)',
-          borderColor: '#c8e6c9',
-        },
-        fontFamily: 'Inter, sans-serif',
-      }}
-    >
-      {/* Status Indicator */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          background: article.published 
-            ? 'linear-gradient(90deg, #4caf50 0%, #66bb6a 100%)'
-            : 'linear-gradient(90deg, #ff9800 0%, #ffb74d 100%)',
+  const PremiumArticleCard = ({ article }) => {
+    const isMenuOpen = Boolean(menuAnchor) && selectedArticle?.id === article.id;
+    
+    return (
+      <Card 
+        elevation={0}
+        onClick={(e) => {
+          // Prevent navigation if clicking on buttons or three dots menu
+          if (e.target.closest('button') || e.target.closest('[role="button"]')) {
+            return;
+          }
+          navigate(`/article/${article.id}`);
         }}
-      />
+        sx={{ 
+          height: 420, // Fixed height for consistency
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: '20px',
+          border: '1px solid #e8f5e8',
+          background: 'white',
+          overflow: 'hidden',
+          position: 'relative',
+          cursor: 'pointer',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': !isMenuOpen ? { 
+            transform: 'translateY(-8px)',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
+            borderColor: 'transparent',
+          } : {},
+          fontFamily: 'Inter, sans-serif',
+        }}
+      >
 
-      <CardContent sx={{ flexGrow: 1, p: 3 }}>
+
+      <CardContent sx={{ flexGrow: 1, p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
           <Chip 
             label={article.published ? 'Published' : 'Draft'}
             size="small"
+            onClick={(e) => e.stopPropagation()}
             sx={{
               backgroundColor: article.published ? '#e8f5e8' : '#fff3e0',
               color: article.published ? '#2e7d32' : '#e65100',
               fontWeight: 600,
               fontFamily: 'Inter, sans-serif',
               fontSize: '0.75rem',
+              cursor: 'default',
             }}
           />
           <IconButton
             size="small"
-            onClick={(e) => handleMenuOpen(e, article)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMenuOpen(e, article);
+            }}
             sx={{
               backgroundColor: '#f8faf8',
               '&:hover': { backgroundColor: '#f0f9f0' },
+              position: 'relative',
+              zIndex: 10, // Ensure button stays above card transforms
             }}
           >
             <MoreVert />
@@ -380,6 +404,7 @@ const DashboardPage = () => {
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             mb: 2,
+            height: '3.6em', // Fixed height for 2 lines
           }}
         >
           {article.title}
@@ -396,9 +421,11 @@ const DashboardPage = () => {
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             mb: 3,
+            height: '4.8em', // Fixed height for 3 lines
+            flexGrow: 0,
           }}
         >
-          {article.excerpt}
+          {article.excerpt || 'No excerpt available for this article.'}
         </Typography>
 
         <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -412,111 +439,143 @@ const DashboardPage = () => {
             }}
           >
             {article.published 
-              ? `Published ${format(new Date(article.publishDate), 'MMM dd, yyyy')}`
-              : `Created ${format(new Date(article.publishDate), 'MMM dd, yyyy')}`
+              ? `Published ${format(new Date(article.publishDate || article.createdAt), 'MMM dd, yyyy')}`
+              : `Created ${format(new Date(article.createdAt), 'MMM dd, yyyy')}`
             }
           </Typography>
         </Box>
 
-        <Box display="flex" flexWrap="wrap" gap={0.5} mt={2}>
-          {article.tags.slice(0, 3).map((tag) => (
-            <Chip
-              key={tag}
-              label={tag}
-              size="small"
-              variant="outlined"
-              sx={{ 
-                fontSize: '0.7rem', 
-                height: 24,
-                borderColor: '#d1d5db',
-                color: '#6b7280',
-                fontFamily: 'Inter, sans-serif',
-                '&:hover': {
-                  borderColor: '#2e7d32',
-                  backgroundColor: '#f0f9f0',
-                },
-              }}
-            />
-          ))}
-          {article.tags.length > 3 && (
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                alignSelf: 'center',
-                color: '#9ca3af',
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 500,
-              }}
-            >
-              +{article.tags.length - 3} more
-            </Typography>
-          )}
+        {/* Tags section with fixed height */}
+        <Box sx={{ height: '40px', mb: 3 }}>
+          <Box display="flex" flexWrap="wrap" gap={0.5}>
+            {(article.tags || []).slice(0, 3).map((tag) => (
+              <Chip
+                key={tag}
+                label={tag}
+                size="small"
+                variant="outlined"
+                onClick={(e) => e.stopPropagation()}
+                sx={{ 
+                  fontSize: '0.7rem', 
+                  height: 24,
+                  borderColor: '#d1d5db',
+                  color: '#6b7280',
+                  fontFamily: 'Inter, sans-serif',
+                  cursor: 'default',
+                  '&:hover': {
+                    borderColor: '#2e7d32',
+                    backgroundColor: '#f0f9f0',
+                  },
+                }}
+              />
+            ))}
+            {(article.tags || []).length > 3 && (
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  alignSelf: 'center',
+                  color: '#9ca3af',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                }}
+              >
+                +{(article.tags || []).length - 3} more
+              </Typography>
+            )}
+          </Box>
         </Box>
-      </CardContent>
 
-      <Divider sx={{ borderColor: '#e8f5e8' }} />
-
-      <CardActions sx={{ p: 2, backgroundColor: '#f8faf8' }}>
-        <Button 
-          size="small" 
-          startIcon={<Edit />}
-          onClick={() => navigate(`/edit-article/${article.id}`)}
-          sx={{
-            color: '#2e7d32',
-            fontWeight: 600,
-            fontFamily: 'Inter, sans-serif',
-            textTransform: 'none',
-            '&:hover': {
-              backgroundColor: '#e8f5e8',
-            },
-          }}
-        >
-          Edit
-        </Button>
-        {article.published && (
+        {/* Action Buttons - Moved to center */}
+        <Box display="flex" gap={1} mb={3}>
           <Button 
             size="small" 
-            startIcon={<Visibility />}
-            onClick={() => navigate(`/article/${article.id}`)}
+            startIcon={<Edit />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/edit-article/${article.id}`);
+            }}
             sx={{
               color: '#2e7d32',
               fontWeight: 600,
               fontFamily: 'Inter, sans-serif',
               textTransform: 'none',
+              backgroundColor: '#f8faf8',
+              border: '1px solid #e8f5e8',
+              borderRadius: '8px',
+              px: 2,
+              py: 1,
               '&:hover': {
                 backgroundColor: '#e8f5e8',
+                borderColor: '#d1d5db',
               },
             }}
           >
-            View
+            Edit
           </Button>
-        )}
-      </CardActions>
+          {article.published && (
+            <Button 
+              size="small" 
+              startIcon={<Visibility />}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/article/${article.id}`);
+              }}
+              sx={{
+                color: '#2e7d32',
+                fontWeight: 600,
+                fontFamily: 'Inter, sans-serif',
+                textTransform: 'none',
+                backgroundColor: '#f8faf8',
+                border: '1px solid #e8f5e8',
+                borderRadius: '8px',
+                px: 2,
+                py: 1,
+                '&:hover': {
+                  backgroundColor: '#e8f5e8',
+                  borderColor: '#d1d5db',
+                },
+              }}
+            >
+              View
+            </Button>
+          )}
+        </Box>
+
+        {/* Spacer to fill remaining space */}
+        <Box sx={{ flexGrow: 1 }} />
+      </CardContent>
     </Card>
-  );
+    );
+  };
 
   const LoadingSkeleton = () => (
     <Card 
       elevation={0}
       sx={{
+        height: 420, // Same height as article cards
         borderRadius: '20px',
         border: '1px solid #e8f5e8',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <Box sx={{ height: 4, backgroundColor: '#f0f0f0' }} />
-      <CardContent sx={{ p: 3 }}>
+      <CardContent sx={{ flexGrow: 1, p: 3 }}>
         <Box display="flex" justifyContent="space-between" mb={2}>
           <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: '12px' }} />
           <Skeleton variant="circular" width={32} height={32} />
         </Box>
-        <Skeleton variant="text" sx={{ fontSize: '1.5rem', mb: 1, borderRadius: '8px' }} />
-        <Skeleton variant="text" sx={{ mb: 1, borderRadius: '4px' }} />
-        <Skeleton variant="text" sx={{ mb: 2, borderRadius: '4px' }} />
+        <Skeleton variant="text" sx={{ fontSize: '1.5rem', mb: 1, borderRadius: '8px', height: '3.6em' }} />
+        <Skeleton variant="text" sx={{ mb: 1, borderRadius: '4px', height: '4.8em' }} />
         <Skeleton variant="text" width={120} sx={{ mb: 2, borderRadius: '4px' }} />
-        <Box display="flex" gap={1}>
+        <Box display="flex" gap={1} mb={2} sx={{ height: '40px' }}>
           <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: '12px' }} />
           <Skeleton variant="rectangular" width={70} height={24} sx={{ borderRadius: '12px' }} />
+        </Box>
+        {/* Action Buttons Skeleton */}
+        <Box display="flex" gap={1} mb={3}>
+          <Skeleton variant="rectangular" width={70} height={32} sx={{ borderRadius: '8px' }} />
+          <Skeleton variant="rectangular" width={70} height={32} sx={{ borderRadius: '8px' }} />
         </Box>
       </CardContent>
     </Card>
@@ -690,6 +749,7 @@ const DashboardPage = () => {
 
         {/* Articles Section */}
         <Paper
+          id="articles-section"
           elevation={0}
           sx={{
             borderRadius: '24px',
@@ -721,6 +781,13 @@ const DashboardPage = () => {
                   }}
                 >
                   Manage and track your wildlife conservation publications
+                  {pagination.total > 0 && (
+                    <span>
+                      {' • '}
+                      Showing {articles.length} of {pagination.total} articles
+                      {pagination.pages > 1 && ` • Page ${pagination.current} of ${pagination.pages}`}
+                    </span>
+                  )}
                 </Typography>
               </Box>
               <Button
@@ -736,12 +803,12 @@ const DashboardPage = () => {
                   px: 3,
                   py: 1.5,
                   background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
-                  boxShadow: '0 8px 24px rgba(46, 125, 50, 0.3)',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
                   fontFamily: 'Inter, sans-serif',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 12px 32px rgba(46, 125, 50, 0.4)',
+                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.2)',
                   },
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
@@ -752,7 +819,7 @@ const DashboardPage = () => {
           </Box>
 
           <Box sx={{ p: 4 }}>
-            <Grid container spacing={3}>
+            <Grid container spacing={4} sx={{ alignItems: 'stretch' }}>
               {loading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <Grid item xs={12} sm={6} lg={4} key={index}>
@@ -821,12 +888,12 @@ const DashboardPage = () => {
                         px: 4,
                         py: 1.5,
                         background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
-                        boxShadow: '0 8px 24px rgba(46, 125, 50, 0.3)',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
                         fontFamily: 'Inter, sans-serif',
                         '&:hover': {
                           background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
                           transform: 'translateY(-2px)',
-                          boxShadow: '0 12px 32px rgba(46, 125, 50, 0.4)',
+                          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.2)',
                         },
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       }}
@@ -837,6 +904,48 @@ const DashboardPage = () => {
                 </Grid>
               )}
             </Grid>
+
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <Box display="flex" justifyContent="center" mt={6}>
+                <Paper 
+                  elevation={0} 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: '12px',
+                    border: '1px solid #e8f5e8',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <Pagination
+                    count={pagination.pages}
+                    page={currentPage}
+                    onChange={handlePageChange}
+                    color="primary"
+                    size="large"
+                    shape="rounded"
+                    showFirstButton
+                    showLastButton
+                    sx={{
+                      '& .MuiPaginationItem-root': {
+                        fontFamily: 'Inter, sans-serif',
+                        fontWeight: 500,
+                      },
+                      '& .MuiPaginationItem-page': {
+                        borderRadius: '8px',
+                      },
+                      '& .MuiPaginationItem-page.Mui-selected': {
+                        backgroundColor: '#2e7d32',
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: '#1b5e20',
+                        }
+                      }
+                    }}
+                  />
+                </Paper>
+              </Box>
+            )}
           </Box>
         </Paper>
 
@@ -849,11 +958,11 @@ const DashboardPage = () => {
             width: 64,
             height: 64,
             background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
-            boxShadow: '0 12px 32px rgba(46, 125, 50, 0.4)',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.2)',
             '&:hover': {
               background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
               transform: 'scale(1.1)',
-              boxShadow: '0 16px 40px rgba(46, 125, 50, 0.5)',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.25)',
             },
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
@@ -867,12 +976,30 @@ const DashboardPage = () => {
           anchorEl={menuAnchor}
           open={Boolean(menuAnchor)}
           onClose={handleMenuClose}
+          disablePortal={false}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          slotProps={{
+            root: {
+              sx: {
+                zIndex: 9999, // Ensure menu appears above everything
+              }
+            }
+          }}
           PaperProps={{
             sx: {
               borderRadius: '12px',
               border: '1px solid #e8f5e8',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
               fontFamily: 'Inter, sans-serif',
+              mt: 0.5, // Small margin to separate from button
+              zIndex: 9999, // High z-index to appear above transformed elements
             }
           }}
         >

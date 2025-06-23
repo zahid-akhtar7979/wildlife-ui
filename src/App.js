@@ -11,6 +11,7 @@ import DashboardPage from './pages/DashboardPage';
 import CreateArticlePage from './pages/CreateArticlePage';
 import EditArticlePage from './pages/EditArticlePage';
 import AdminPage from './pages/AdminPage';
+import TestPage from './pages/TestPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Wildlife Geography theme
@@ -87,9 +88,9 @@ const theme = createTheme({
           fontSize: '0.95rem',
         },
         contained: {
-          boxShadow: '0 2px 4px rgba(46, 125, 50, 0.2)',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           '&:hover': {
-            boxShadow: '0 4px 8px rgba(46, 125, 50, 0.3)',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)',
           },
         },
       },
@@ -133,6 +134,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/article/:id" element={<ArticleDetailPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/test" element={<TestPage />} />
               
               {/* Protected routes for contributors */}
               <Route 
