@@ -13,13 +13,11 @@ import {
   IconButton,
   Skeleton,
   Alert,
-  Divider,
   Dialog,
   DialogContent,
 } from '@mui/material';
 import {
   CalendarToday,
-  Person,
   Share,
   Facebook,
   Twitter,
@@ -43,25 +41,26 @@ const ArticleDetailPage = () => {
   const [shareMenuAnchor, setShareMenuAnchor] = useState(null);
 
   useEffect(() => {
-    fetchArticle();
-  }, [id]);
+    const fetchArticle = async () => {
+      try {
+        setLoading(true);
+        const response = await articleService.getArticleById(id);
+        setArticle(response.data.article);
+      } catch (err) {
+        setError('Failed to load article. Please try again.');
+        console.error('Error fetching article:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchArticle = async () => {
-    try {
-      setLoading(true);
-      const response = await articleService.getArticleById(id);
-      setArticle(response.data.article);
-    } catch (err) {
-      setError('Article not found or failed to load.');
-      console.error('Error fetching article:', err);
-    } finally {
-      setLoading(false);
+    if (id) {
+      fetchArticle();
     }
-  };
+  }, [id]);
 
   const handleShare = (platform) => {
     const url = window.location.href;
-    const title = article?.title || 'Wildlife Chronicles';
     const text = article?.excerpt || 'Check out this wildlife article';
 
     const shareUrls = {

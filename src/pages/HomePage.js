@@ -54,54 +54,7 @@ const formatSafeDate = (article, formatString = 'MMM d, yyyy') => {
   }
 };
 
-// Mock articles data - moved outside component to fix ESLint warning
-const mockArticles = [
-  {
-    id: 1,
-    title: 'Orangutans of Borneo: Protecting the Last Forest Gardeners',
-    excerpt: 'Discover the critical situation facing Bornean orangutans and learn how conservation efforts are working to save these incredible forest gardeners.',
-    author: { name: 'Dr. John Doe' },
-    publishedDate: '2024-01-05',
-    images: [{ 
-      url: 'https://images.unsplash.com/photo-1544985361-b420d7a77043?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=600&q=80', 
-      caption: 'Orangutan mother with her baby in Borneo rainforest' 
-    }],
-    tags: ['Primates', 'Orangutans', 'Conservation'],
-    views: 654,
-    category: 'Primates',
-    published: true
-  },
-  {
-    id: 2,
-    title: 'Bengal Tigers: Guardians of the Sundarbans',
-    excerpt: 'Explore the unique ecosystem of the Sundarbans and the magnificent Bengal tigers that call this mangrove forest home.',
-    author: { name: 'Dr. Sarah Wilson' },
-    publishedDate: '2024-01-03',
-    images: [{ 
-      url: 'https://images.unsplash.com/photo-1551969014-7d2c4cddf0b6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80', 
-      caption: 'Bengal tiger in Sundarbans mangrove forest' 
-    }],
-    tags: ['Big Cats', 'Tigers', 'Conservation'],
-    views: 892,
-    category: 'Big Cats',
-    published: true
-  },
-  {
-    id: 3,
-    title: 'African Elephants: The Gentle Giants of the Savanna',
-    excerpt: 'Learn about the complex social structures of African elephants and the conservation challenges they face in the modern world.',
-    author: { name: 'Dr. Michael Chen' },
-    publishedDate: '2024-01-01',
-    images: [{ 
-      url: 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80', 
-      caption: 'African elephant herd in savanna' 
-    }],
-    tags: ['Large Mammals', 'Elephants', 'Conservation'],
-    views: 567,
-    category: 'Large Mammals',
-    published: true
-  }
-];
+
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -111,36 +64,56 @@ const HomePage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Fetch articles and categories on component mount
+  // Single useEffect to fetch data once on mount
   useEffect(() => {
+    let isCancelled = false;
+    
     const fetchData = async () => {
       try {
+        console.log('🏠 HomePage - Starting fetchData...');
         setLoading(true);
+        
         const [articlesResponse, categoriesResponse] = await Promise.all([
           articleService.getArticles(),
           articleService.getCategories()
         ]);
         
-        setArticles(articlesResponse.data.articles || []);
-        setCategories(categoriesResponse.data.categories || []);
-        setError(null);
+        console.log('🏠 HomePage - Raw API responses:', articlesResponse, categoriesResponse);
+        
+        if (!isCancelled) {
+          const articles = articlesResponse.data?.articles || [];
+          const categories = categoriesResponse.data?.categories || [];
+          
+          console.log('🏠 HomePage - Articles found:', articles.length);
+          console.log('🏠 HomePage - Categories found:', categories.length);
+          
+          setArticles(articles);
+          setCategories(categories);
+          setError(null);
+        }
       } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load articles. Please try again later.');
-        // Fallback to mock data if API fails
-        setArticles(mockArticles);
-        setCategories(['Big Cats', 'Large Mammals', 'Primates']);
+        console.error('🏠 HomePage - Error fetching data:', err);
+        if (!isCancelled) {
+          setError('Failed to load articles. Please try again later.');
+          setArticles([]);
+          setCategories([]);
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
-  }, []);
+    
+    return () => {
+      isCancelled = true;
+    };
+  }, []); // Empty dependency array - run only once
 
   const filteredArticles = useMemo(() => {
-    let filtered = articles.filter(article => article.published);
+    let filtered = articles;
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -552,8 +525,8 @@ const HomePage = () => {
                       transition: 'all 0.2s ease',
                     }}
                   >
-                    <ListItemText 
-                      primary={`All Articles (${articles.filter(a => a.published).length})`}
+                                      <ListItemText 
+                    primary={`All Articles (${articles.length})`}
                       primaryTypographyProps={{
                         fontSize: '0.95rem',
                         fontFamily: 'Inter, sans-serif',
@@ -563,7 +536,7 @@ const HomePage = () => {
                   </ListItemButton>
                 </ListItem>
                 {categories.map((category) => {
-                  const count = articles.filter(a => a.published && a.category === category).length;
+                  const count = articles.filter(a => a.category === category).length;
                   if (count === 0) return null;
                   
                   return (

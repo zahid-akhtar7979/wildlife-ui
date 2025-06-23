@@ -91,9 +91,11 @@ export const articleService = {
   // Delete article
   deleteArticle: async (id) => {
     try {
+      console.log('🔥 ArticleService.deleteArticle called with ID:', id);
       const response = await api.delete(`/articles/${id}`);
       return response.data;
     } catch (error) {
+      console.error('🔥 Error in deleteArticle service:', error);
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       }

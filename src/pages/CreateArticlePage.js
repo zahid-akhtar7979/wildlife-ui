@@ -33,8 +33,7 @@ import {
   Edit,
   CheckCircle,
   Error as ErrorIcon,
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+  } from '@mui/icons-material';
 import { categories } from '../data/mockData';
 import { articleService } from '../services/articleService';
 import WildlifeRichEditor from '../components/common/WildlifeRichEditor';
@@ -42,7 +41,6 @@ import WildlifeRichEditor from '../components/common/WildlifeRichEditor';
 const CreateArticlePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [images, setImages] = useState([]);
@@ -230,7 +228,7 @@ const CreateArticlePage = () => {
         return updated;
       });
     }
-  }, [setUploadingFiles, setImages, setVideos]);
+  }, []);
 
   // Image dropzone
   const imageDropzone = useDropzone({

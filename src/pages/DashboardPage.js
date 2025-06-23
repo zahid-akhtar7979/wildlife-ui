@@ -54,6 +54,7 @@ const DashboardPage = () => {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [stats, setStats] = useState({
     total: 0,
     published: 0,
@@ -65,10 +66,16 @@ const DashboardPage = () => {
   });
 
   const fetchArticles = useCallback(async () => {
+    if (!user?.id) return;
+    
     try {
       setLoading(true);
       const response = await articleService.getArticlesByAuthor(user.id);
       const userArticles = response.data.articles;
+      
+      console.log('📄 Loaded articles in dashboard:', userArticles);
+      console.log('📄 Number of articles:', userArticles?.length);
+      console.log('📄 First article structure:', userArticles?.[0]);
       
       setArticles(userArticles);
       setStats({
@@ -86,13 +93,16 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [user.id]);
+  }, [user?.id]);
 
   useEffect(() => {
-    fetchArticles();
-  }, [fetchArticles]);
+    if (user?.id) {
+      fetchArticles();
+    }
+  }, [fetchArticles, user?.id]);
 
   const handleMenuOpen = (event, article) => {
+    console.log('🔗 Menu opened for article:', article);
     setMenuAnchor(event.currentTarget);
     setSelectedArticle(article);
   };
@@ -108,18 +118,51 @@ const DashboardPage = () => {
   };
 
   const handleDelete = () => {
+    console.log('🗑️ Delete clicked for article:', selectedArticle);
+    console.log('🗑️ Article ID:', selectedArticle?.id);
+    console.log('🗑️ Article Title:', selectedArticle?.title);
     setDeleteDialogOpen(true);
-    handleMenuClose();
+    // Only close the menu, don't clear selectedArticle until after deletion
+    setMenuAnchor(null);
   };
 
   const confirmDelete = async () => {
+    console.log('🚨 CONFIRM DELETE BUTTON CLICKED!');
+    console.log('🗑️ Selected article for deletion:', selectedArticle);
+    
+    if (!selectedArticle || !selectedArticle.id) {
+      console.error('❌ No article selected or missing ID:', selectedArticle);
+      setError('No article selected for deletion');
+      return;
+    }
+    
     try {
-      await articleService.deleteArticle(selectedArticle.id);
+      const response = await articleService.deleteArticle(selectedArticle.id);
+      console.log('✅ Article deleted successfully!');
+      
+      // Update local state to remove the deleted article
       setArticles(articles.filter(article => article.id !== selectedArticle.id));
+      
+      // Update stats
+      const updatedArticles = articles.filter(article => article.id !== selectedArticle.id);
+      setStats(prevStats => ({
+        ...prevStats,
+        total: updatedArticles.length,
+        published: updatedArticles.filter(a => a.published).length,
+        drafts: updatedArticles.filter(a => !a.published).length,
+      }));
+      
       setDeleteDialogOpen(false);
       setSelectedArticle(null);
+      setError(''); // Clear any previous errors
+      setSuccessMessage(`Article "${selectedArticle.title}" was successfully deleted.`);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
-      console.error('Error deleting article:', err);
+      console.error('❌ Error deleting article:', err);
+      console.error('❌ Error details:', err.response?.data || err.message);
+      setError(`Failed to delete article: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -624,8 +667,24 @@ const DashboardPage = () => {
               borderRadius: '12px',
               fontFamily: 'Inter, sans-serif',
             }}
+            onClose={() => setError('')}
           >
             {error}
+          </Alert>
+        )}
+
+        {/* Success Message */}
+        {successMessage && (
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 4,
+              borderRadius: '12px',
+              fontFamily: 'Inter, sans-serif',
+            }}
+            onClose={() => setSuccessMessage('')}
+          >
+            {successMessage}
           </Alert>
         )}
 
@@ -885,13 +944,22 @@ const DashboardPage = () => {
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontFamily: 'Inter, sans-serif' }}>
-              Are you sure you want to delete "{selectedArticle?.title}"? 
+              Are you sure you want to delete "{selectedArticle?.title || 'this article'}"? 
               This action cannot be undone.
             </Typography>
+            {process.env.NODE_ENV === 'development' && (
+              <Typography variant="caption" sx={{ mt: 1, display: 'block', color: '#666' }}>
+                Debug: Article ID: {selectedArticle?.id}, Title: {selectedArticle?.title}
+              </Typography>
+            )}
           </DialogContent>
           <DialogActions sx={{ p: 3, pt: 1 }}>
             <Button 
-              onClick={() => setDeleteDialogOpen(false)}
+              onClick={() => {
+                console.log('🚫 Cancel delete dialog');
+                setDeleteDialogOpen(false);
+                setSelectedArticle(null); // Clear selected article on cancel
+              }}
               sx={{ 
                 fontFamily: 'Inter, sans-serif',
                 textTransform: 'none',
@@ -901,7 +969,11 @@ const DashboardPage = () => {
               Cancel
             </Button>
             <Button 
-              onClick={confirmDelete} 
+              onClick={(e) => {
+                console.log('🚨 DELETE BUTTON CLICKED IN DIALOG!');
+                console.log('🚨 Event:', e);
+                confirmDelete();
+              }} 
               variant="contained" 
               color="error"
               sx={{ 
