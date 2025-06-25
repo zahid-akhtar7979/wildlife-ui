@@ -38,11 +38,33 @@ import { categories } from '../data/mockData';
 import { articleService } from '../services/articleService';
 import WildlifeRichEditor from '../components/common/WildlifeRichEditor';
 
-// Simplified image card component without caption functionality
-const ImageCard = React.memo(({ item, onRemove, type, uploadingFiles }) => {
-  const handleRemove = useCallback(() => {
-    onRemove(item.id);
+// Enhanced image card component with caption functionality and drag-and-drop
+const ImageCard = React.memo(({ 
+  item, 
+  onRemove, 
+  onCaptionChange, 
+  onOrderChange,
+  type, 
+  uploadingFiles, 
+  index,
+  dragHandleProps 
+}) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const handleRemove = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      await onRemove(item.id);
+    } catch (error) {
+      console.error('Delete error:', error);
+    } finally {
+      setIsDeleting(false);
+    }
   }, [item.id, onRemove]);
+
+  const handleCaptionChange = useCallback((e) => {
+    onCaptionChange(item.id, e.target.value);
+  }, [item.id, onCaptionChange]);
 
   // Memo the progress value to prevent unnecessary re-renders
   const progressValue = React.useMemo(() => {
@@ -50,9 +72,60 @@ const ImageCard = React.memo(({ item, onRemove, type, uploadingFiles }) => {
     return uploadingFile?.progress || 0;
   }, [uploadingFiles, item.id]);
 
+  // Lazy loading intersection observer
+  const [isVisible, setIsVisible] = React.useState(false);
+  const [hasLoaded, setHasLoaded] = React.useState(false);
+  const imgRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasLoaded) {
+          setIsVisible(true);
+          setHasLoaded(true);
+        }
+      },
+      { threshold: 0.1, rootMargin: '50px' }
+    );
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasLoaded]);
+
   return (
-    <Card>
+    <Card sx={{ position: 'relative' }}>
+      {/* Drag Handle */}
+      <Box
+        {...dragHandleProps}
+        sx={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          zIndex: 2,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          borderRadius: '50%',
+          width: 32,
+          height: 32,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'grab',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          '&:active': {
+            cursor: 'grabbing'
+          }
+        }}
+      >
+        {index + 1}
+      </Box>
+
       <Box 
+        ref={imgRef}
         position="relative"
         sx={{
           borderRadius: 1,
@@ -63,30 +136,42 @@ const ImageCard = React.memo(({ item, onRemove, type, uploadingFiles }) => {
           transition: 'border 0.3s ease'
         }}
       >
-        <CardMedia
-          component={type === 'images' ? 'img' : 'video'}
-          height={150}
-          src={item.url || item.thumbnail}
-          sx={{ 
-            objectFit: 'cover',
-            backgroundColor: '#f5f5f5',
-            transition: 'all 0.3s ease',
-            opacity: item.status === 'error' ? 0.6 : 1,
-            filter: item.status === 'uploading' ? 'brightness(1.1)' : 'none'
-          }}
-          onError={(e) => {
-            console.log('Image load error for:', item.url);
-            // Fallback to show a placeholder if image fails to load
-            e.target.style.backgroundColor = '#e0e0e0';
-            e.target.style.display = 'flex';
-            e.target.style.alignItems = 'center';
-            e.target.style.justifyContent = 'center';
-          }}
-          onLoad={() => {
-            // Remove excessive logging that clutters console
-            // console.log('✅ Image loaded successfully:', item.url);
-          }}
-        />
+        {/* Lazy loading placeholder */}
+        {!isVisible ? (
+          <Box
+            sx={{
+              height: 150,
+              backgroundColor: '#f5f5f5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#999'
+            }}
+          >
+            Loading...
+          </Box>
+        ) : (
+          <CardMedia
+            component={type === 'images' ? 'img' : 'video'}
+            height={150}
+            src={item.url || item.thumbnail}
+            loading="lazy"
+            sx={{ 
+              objectFit: 'cover',
+              backgroundColor: '#f5f5f5',
+              transition: 'all 0.3s ease',
+              opacity: item.status === 'error' ? 0.6 : 1,
+              filter: item.status === 'uploading' ? 'brightness(1.1)' : 'none'
+            }}
+            onError={(e) => {
+              console.log('Image load error for:', item.url);
+              e.target.style.backgroundColor = '#e0e0e0';
+              e.target.style.display = 'flex';
+              e.target.style.alignItems = 'center';
+              e.target.style.justifyContent = 'center';
+            }}
+          />
+        )}
         
         {/* Upload Status Overlay - Less intrusive */}
         {item.status === 'uploading' && (
@@ -202,15 +287,27 @@ const ImageCard = React.memo(({ item, onRemove, type, uploadingFiles }) => {
         <IconButton
           size="small"
           onClick={handleRemove}
+          disabled={isDeleting}
           sx={{
             position: 'absolute',
             top: 8,
             right: 8,
-            backgroundColor: 'rgba(255,255,255,0.8)',
-            '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }
+            backgroundColor: isDeleting ? 'rgba(244, 67, 54, 0.8)' : 'rgba(255,255,255,0.8)',
+            color: isDeleting ? 'white' : 'inherit',
+            '&:hover': { 
+              backgroundColor: isDeleting ? 'rgba(244, 67, 54, 0.9)' : 'rgba(255,255,255,0.9)' 
+            },
+            '&:disabled': {
+              backgroundColor: 'rgba(244, 67, 54, 0.8)',
+              color: 'white'
+            }
           }}
         >
-          <Delete />
+          {isDeleting ? (
+            <CircularProgress size={16} sx={{ color: 'white' }} />
+          ) : (
+            <Delete />
+          )}
         </IconButton>
       </Box>
       
@@ -222,6 +319,43 @@ const ImageCard = React.memo(({ item, onRemove, type, uploadingFiles }) => {
           sx={{ height: 4 }}
         />
       )}
+
+      {/* Caption Input */}
+      <Box 
+        p={2} 
+        sx={{ 
+          backgroundColor: 'white',
+          borderRadius: 1,
+        }}
+      >
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Add caption to help tell the story..."
+          value={item.caption || ''}
+          onChange={handleCaptionChange}
+          variant="outlined"
+          multiline
+          maxRows={3}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'grey.300',
+              },
+              '&:hover fieldset': {
+                borderColor: '#2e7d32',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: '#2e7d32',
+              },
+            },
+            '& .MuiInputBase-input': {
+              padding: '8px 12px',
+              fontSize: '0.875rem',
+            },
+          }}
+        />
+      </Box>
     </Card>
   );
 });
@@ -553,15 +687,159 @@ const CreateArticlePage = () => {
     setValue('tags', watchedValues.tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleRemoveImage = (imageId) => {
-    setImages(images.filter(img => img.id !== imageId));
+  const handleRemoveImage = async (imageId) => {
+    try {
+      // Find the image to get its publicId
+      const imageToRemove = images.find(img => img.id === imageId);
+      
+      if (imageToRemove) {
+        // Only try to delete from Cloudinary if the image was successfully uploaded
+        if (imageToRemove.status === 'completed' && imageToRemove.publicId) {
+          console.log('🗑️ Deleting image from Cloudinary:', imageToRemove.publicId);
+          try {
+            await articleService.deleteImage(imageToRemove.publicId);
+            console.log('✅ Image deleted from Cloudinary successfully');
+          } catch (error) {
+            console.warn('⚠️ Failed to delete image from Cloudinary:', error.message);
+            setSubmitError(`Warning: Failed to delete image from storage: ${error.message}. Image removed from article but may still exist in cloud storage.`);
+            // Continue with local removal even if Cloudinary deletion fails
+          }
+        } else {
+          console.log('ℹ️ Skipping Cloudinary deletion - image not uploaded or upload incomplete');
+        }
+      }
+      
+      // Remove from local state
+      setImages(images.filter(img => img.id !== imageId));
+    } catch (error) {
+      console.error('❌ Error removing image:', error);
+      // Remove from local state even if deletion fails
+      setImages(images.filter(img => img.id !== imageId));
+    }
   };
 
-  const handleRemoveVideo = (videoId) => {
-    setVideos(videos.filter(vid => vid.id !== videoId));
+  const handleRemoveVideo = async (videoId) => {
+    try {
+      // Find the video to get its publicId
+      const videoToRemove = videos.find(vid => vid.id === videoId);
+      
+      if (videoToRemove) {
+        // Only try to delete from Cloudinary if the video was successfully uploaded
+        if (videoToRemove.status === 'completed' && videoToRemove.publicId) {
+          console.log('🗑️ Deleting video from Cloudinary:', videoToRemove.publicId);
+          try {
+            await articleService.deleteVideo(videoToRemove.publicId);
+            console.log('✅ Video deleted from Cloudinary successfully');
+          } catch (error) {
+            console.warn('⚠️ Failed to delete video from Cloudinary:', error.message);
+            setSubmitError(`Warning: Failed to delete video from storage: ${error.message}. Video removed from article but may still exist in cloud storage.`);
+            // Continue with local removal even if Cloudinary deletion fails
+          }
+        } else {
+          console.log('ℹ️ Skipping Cloudinary deletion - video not uploaded or upload incomplete');
+        }
+      }
+      
+      // Remove from local state
+      setVideos(videos.filter(vid => vid.id !== videoId));
+    } catch (error) {
+      console.error('❌ Error removing video:', error);
+      // Remove from local state even if deletion fails
+      setVideos(videos.filter(vid => vid.id !== videoId));
+    }
   };
 
+  // Handle image caption change
+  const handleImageCaptionChange = useCallback((imageId, caption) => {
+    setImages(prev => prev.map(img => 
+      img.id === imageId ? { ...img, caption } : img
+    ));
+  }, []);
 
+  // Handle video caption change  
+  const handleVideoCaptionChange = useCallback((videoId, caption) => {
+    setVideos(prev => prev.map(vid => 
+      vid.id === videoId ? { ...vid, caption } : vid
+    ));
+  }, []);
+
+  // Handle image reordering
+  const handleImageReorder = useCallback((dragIndex, hoverIndex) => {
+    setImages(prev => {
+      const dragItem = prev[dragIndex];
+      const newItems = [...prev];
+      newItems.splice(dragIndex, 1);
+      newItems.splice(hoverIndex, 0, dragItem);
+      return newItems;
+    });
+  }, []);
+
+  // Handle video reordering
+  const handleVideoReorder = useCallback((dragIndex, hoverIndex) => {
+    setVideos(prev => {
+      const dragItem = prev[dragIndex];
+      const newItems = [...prev];
+      newItems.splice(dragIndex, 1);
+      newItems.splice(hoverIndex, 0, dragItem);
+      return newItems;
+    });
+  }, []);
+
+  // Draggable wrapper component for images
+  const DraggableImageCard = ({ item, index, type, onReorder, ...props }) => {
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragStart = (e) => {
+      setIsDragging(true);
+      e.dataTransfer.setData('text/plain', index.toString());
+      e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragEnd = () => {
+      setIsDragging(false);
+    };
+
+    const handleDragOver = (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+      const hoverIndex = index;
+      
+      if (dragIndex !== hoverIndex) {
+        onReorder(dragIndex, hoverIndex);
+      }
+    };
+
+    const dragHandleProps = {
+      draggable: true,
+      onDragStart: handleDragStart,
+      onDragEnd: handleDragEnd,
+    };
+
+    return (
+      <Box
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        sx={{
+          opacity: isDragging ? 0.5 : 1,
+          transform: isDragging ? 'rotate(5deg)' : 'none',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <ImageCard
+          {...props}
+          item={item}
+          index={index}
+          type={type}
+          dragHandleProps={dragHandleProps}
+        />
+      </Box>
+    );
+  };
 
   const onSubmit = async (data) => {
     try {
@@ -589,12 +867,14 @@ const CreateArticlePage = () => {
       // Process images for backend
       const processedImages = images
         .filter(img => img.status === 'completed')
-        .map(({ file, status, progress, error, ...img }) => {
+        .map(({ file, status, progress, error, ...img }, index) => {
           console.log('🔍 Processing image:', img);
           return {
             id: img.publicId,  // Use Cloudinary public_id, not local fileId
             url: img.url,
             alt: img.alt || '',
+            caption: img.caption || '',
+            order: index, // Preserve ordering
             sizes: img.sizes || {}
           };
         });
@@ -602,11 +882,13 @@ const CreateArticlePage = () => {
       // Process videos for backend  
       const processedVideos = videos
         .filter(vid => vid.status === 'completed')
-        .map(({ file, status, progress, error, ...vid }) => {
+        .map(({ file, status, progress, error, ...vid }, index) => {
           console.log('🔍 Processing video:', vid);
           return {
             id: vid.publicId,  // Use Cloudinary public_id, not local fileId
             url: vid.url,
+            caption: vid.caption || '',
+            order: index, // Preserve ordering
             thumbnail: vid.thumbnailUrl || vid.url
           };
         });
@@ -784,18 +1066,33 @@ const CreateArticlePage = () => {
         </Box>
 
         {items.length > 0 && (
-          <Grid container spacing={2}>
-            {items.map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item.id}>
-                <ImageCard
-                  item={item}
-                  onRemove={onRemove}
-                  type={type}
-                  uploadingFiles={uploadingFiles}
-                />
-              </Grid>
-            ))}
-          </Grid>
+          <>
+            <Typography variant="body2" sx={{ mb: 2, color: '#666', fontStyle: 'italic' }}>
+              💡 Tip: Drag images by the numbered circles to reorder them. The first image will be featured.
+            </Typography>
+            <Grid container spacing={2}>
+              {items.map((item, index) => (
+                <Grid 
+                  item 
+                  xs={12} 
+                  sm={6} 
+                  md={type === 'images' ? 4 : 6}
+                  lg={type === 'images' ? 3 : 4}
+                  key={item.id}
+                >
+                  <DraggableImageCard
+                    item={item}
+                    index={index}
+                    onRemove={onRemove}
+                    onCaptionChange={type === 'images' ? handleImageCaptionChange : handleVideoCaptionChange}
+                    onReorder={type === 'images' ? handleImageReorder : handleVideoReorder}
+                    type={type}
+                    uploadingFiles={uploadingFiles}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </>
         )}
       </Paper>
     );

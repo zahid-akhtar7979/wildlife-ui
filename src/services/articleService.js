@@ -42,6 +42,15 @@ export const articleService = {
       const response = await api.get(`/articles/${id}`);
       return response.data;
     } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('You need to be logged in to access this draft article.');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('You can only access your own draft articles.');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('Article not found. It may have been deleted.');
+      }
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       }
@@ -165,6 +174,50 @@ export const articleService = {
       return await articleService.uploadVideo(file);
     } else {
       throw new Error('Unsupported file type');
+    }
+  },
+
+  // Delete image from Cloudinary
+  deleteImage: async (publicId) => {
+    try {
+      const response = await api.delete(`/upload/delete/${publicId}?resourceType=image`);
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
+    }
+  },
+
+  // Delete video from Cloudinary
+  deleteVideo: async (publicId) => {
+    try {
+      const response = await api.delete(`/upload/delete/${publicId}?resourceType=video`);
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
+    }
+  },
+
+  // Delete media file (backward compatibility)
+  deleteMedia: async (publicId, type) => {
+    try {
+      if (type === 'image' || type === 'images') {
+        return await articleService.deleteImage(publicId);
+      } else if (type === 'video' || type === 'videos') {
+        return await articleService.deleteVideo(publicId);
+      } else {
+        throw new Error('Unsupported media type');
+      }
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
     }
   },
 

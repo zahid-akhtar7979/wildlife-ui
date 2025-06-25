@@ -98,27 +98,73 @@ const ArticleDetailPage = () => {
         <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
           Media Gallery
         </Typography>
-        <Grid container spacing={2}>
-          {images?.map((image) => (
-            <Grid item xs={12} sm={6} md={4} key={image.id}>
+        <Grid container spacing={{ xs: 1, sm: 2 }}>
+          {images?.map((image, index) => (
+            <Grid 
+              item 
+              xs={12} 
+              sm={6} 
+              md={4} 
+              lg={3}
+              key={image.id}
+            >
               <Card 
                 sx={{ 
                   cursor: 'pointer',
-                  transition: 'transform 0.2s',
-                  '&:hover': { transform: 'scale(1.02)' }
+                  transition: 'all 0.3s ease',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  '&:hover': { 
+                    transform: { xs: 'none', sm: 'scale(1.02)' },
+                    boxShadow: 3
+                  }
                 }}
                 onClick={() => setSelectedMedia({ type: 'image', ...image })}
               >
-                <CardMedia
-                  component="img"
-                  height={200}
-                  image={image.url}
-                  alt={image.alt}
-                  sx={{ objectFit: 'cover' }}
-                />
+                <Box position="relative">
+                  <CardMedia
+                    component="img"
+                    height={{ xs: 180, sm: 200 }}
+                    image={image.url}
+                    alt={image.alt}
+                    loading="lazy"
+                    sx={{ objectFit: 'cover' }}
+                  />
+                  {/* Image counter badge */}
+                  <Box
+                    position="absolute"
+                    top={8}
+                    left={8}
+                    sx={{
+                      backgroundColor: 'rgba(0,0,0,0.7)',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: 24,
+                      height: 24,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {index + 1}
+                  </Box>
+                </Box>
                 {image.caption && (
-                  <Box p={1}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Box p={{ xs: 1, sm: 1.5 }} flexGrow={1}>
+                    <Typography 
+                      variant="caption" 
+                      color="text.secondary"
+                      sx={{ 
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.3
+                      }}
+                    >
                       {image.caption}
                     </Typography>
                   </Box>
@@ -127,40 +173,93 @@ const ArticleDetailPage = () => {
             </Grid>
           ))}
           
-          {videos?.map((video) => (
-            <Grid item xs={12} sm={6} md={4} key={video.id}>
+          {videos?.map((video, index) => (
+            <Grid 
+              item 
+              xs={12} 
+              sm={6} 
+              md={6}
+              lg={4}
+              key={video.id}
+            >
               <Card 
                 sx={{ 
                   cursor: 'pointer',
                   position: 'relative',
-                  transition: 'transform 0.2s',
-                  '&:hover': { transform: 'scale(1.02)' }
+                  transition: 'all 0.3s ease',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  '&:hover': { 
+                    transform: { xs: 'none', sm: 'scale(1.02)' },
+                    boxShadow: 3
+                  }
                 }}
                 onClick={() => setSelectedMedia({ type: 'video', ...video })}
               >
-                <CardMedia
-                  component="img"
-                  height={200}
-                  image={video.thumbnail}
-                  alt={video.caption}
-                  sx={{ objectFit: 'cover' }}
-                />
-                <Box
-                  position="absolute"
-                  top="50%"
-                  left="50%"
-                  sx={{
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    borderRadius: '50%',
-                    p: 1,
-                  }}
-                >
-                  <PlayArrow sx={{ color: 'white', fontSize: 32 }} />
+                <Box position="relative">
+                  <CardMedia
+                    component="img"
+                    height={{ xs: 180, sm: 200 }}
+                    image={video.thumbnail}
+                    alt={video.caption}
+                    loading="lazy"
+                    sx={{ objectFit: 'cover' }}
+                  />
+                  {/* Video play button */}
+                  <Box
+                    position="absolute"
+                    top="50%"
+                    left="50%"
+                    sx={{
+                      transform: 'translate(-50%, -50%)',
+                      backgroundColor: 'rgba(0,0,0,0.8)',
+                      borderRadius: '50%',
+                      width: { xs: 48, sm: 56 },
+                      height: { xs: 48, sm: 56 },
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0,0,0,0.9)',
+                        transform: 'translate(-50%, -50%) scale(1.1)'
+                      }
+                    }}
+                  >
+                    <PlayArrow sx={{ color: 'white', fontSize: { xs: 24, sm: 32 } }} />
+                  </Box>
+                  {/* Video badge */}
+                  <Box
+                    position="absolute"
+                    top={8}
+                    right={8}
+                    sx={{
+                      backgroundColor: 'rgba(220, 20, 60, 0.9)',
+                      color: 'white',
+                      borderRadius: 1,
+                      px: 1,
+                      py: 0.5,
+                      fontSize: '10px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    VIDEO
+                  </Box>
                 </Box>
                 {video.caption && (
-                  <Box p={1}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Box p={{ xs: 1, sm: 1.5 }} flexGrow={1}>
+                    <Typography 
+                      variant="caption" 
+                      color="text.secondary"
+                      sx={{ 
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.3
+                      }}
+                    >
                       {video.caption}
                     </Typography>
                   </Box>
@@ -238,14 +337,70 @@ const ArticleDetailPage = () => {
     console.log('❌ ArticleDetailPage - Rendering error state');
     console.log('   - Error:', error);
     console.log('   - Article:', article);
+    
+    const isAuthError = error?.includes('logged in') || error?.includes('draft article');
+    const isDraftPermissionError = error?.includes('your own draft');
+    
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="error" sx={{ mb: 4 }}>
+        <Alert 
+          severity={isAuthError ? "warning" : "error"} 
+          sx={{ mb: 4 }}
+        >
           {error || 'Article not found'}
         </Alert>
-        <Button variant="contained" onClick={() => navigate('/')}>
-          Back to Articles
-        </Button>
+        
+        {isAuthError && (
+          <Alert severity="info" sx={{ mb: 4 }}>
+            💡 This appears to be a draft article. Please log in to your account to view it.
+          </Alert>
+        )}
+        
+        {isDraftPermissionError && (
+          <Alert severity="info" sx={{ mb: 4 }}>
+            💡 This is a private draft article. You can only view drafts that you created.
+          </Alert>
+        )}
+        
+        <Box display="flex" gap={2}>
+          <Button variant="contained" onClick={() => navigate('/')}>
+            Back to Articles
+          </Button>
+          
+          {isAuthError && (
+            <Button 
+              variant="outlined" 
+              onClick={() => navigate('/login')}
+              sx={{ 
+                borderColor: '#2e7d32',
+                color: '#2e7d32',
+                '&:hover': {
+                  backgroundColor: '#e8f5e8',
+                  borderColor: '#1b5e20'
+                }
+              }}
+            >
+              Login
+            </Button>
+          )}
+          
+          {(isAuthError || isDraftPermissionError) && (
+            <Button 
+              variant="outlined" 
+              onClick={() => navigate('/dashboard')}
+              sx={{ 
+                borderColor: '#2e7d32',
+                color: '#2e7d32',
+                '&:hover': {
+                  backgroundColor: '#e8f5e8',
+                  borderColor: '#1b5e20'
+                }
+              }}
+            >
+              Go to Dashboard
+            </Button>
+          )}
+        </Box>
       </Container>
     );
   }
