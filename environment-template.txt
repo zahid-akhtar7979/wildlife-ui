@@ -1,0 +1,17 @@
+# Frontend Environment Configuration Template
+# Copy this file to .env and fill in your actual values
+
+# API Configuration
+REACT_APP_API_URL=http://localhost:3001/api
+
+# For Production, use your deployed backend URL:
+# REACT_APP_API_URL=https://your-backend-domain.railway.app/api
+
+# Optional: Analytics Configuration
+# REACT_APP_GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX
+
+# Optional: Error Tracking
+# REACT_APP_SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
+
+# Optional: Feature Flags
+# REACT_APP_ENABLE_FEATURE_X=false 
