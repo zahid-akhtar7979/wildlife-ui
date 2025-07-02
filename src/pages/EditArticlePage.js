@@ -403,8 +403,8 @@ const EditArticlePage = () => {
       const response = await articleService.getArticleById(id);
       const articleData = response.data.article;
       
-      // Check if user can edit this article
-      if (articleData.author.id !== user.id && user.role !== 'admin') {
+      // Check if user can edit this article - use authorId instead of author.id
+      if (articleData.authorId !== user.id && user.role !== 'admin') {
         setSubmitError('You do not have permission to edit this article.');
         return;
       }

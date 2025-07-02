@@ -50,7 +50,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { authService } from '../services/authService';
 import { articleService } from '../services/articleService';
-import { format } from 'date-fns';
+import { formatSafeDate } from '../utils/textUtils';
 
 const AdminPage = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -266,7 +266,7 @@ const AdminPage = () => {
                 />
               </TableCell>
               <TableCell>
-                {format(new Date(user.createdAt), 'MMM dd, yyyy')}
+                {formatSafeDate(user.createdAt)}
               </TableCell>
               <TableCell align="right">
                 <IconButton 
@@ -330,7 +330,7 @@ const AdminPage = () => {
               </TableCell>
               <TableCell>
                 {article.published 
-                  ? format(new Date(article.publishDate), 'MMM dd, yyyy')
+                  ? formatSafeDate(article.publishDate)
                   : 'Not published'
                 }
               </TableCell>

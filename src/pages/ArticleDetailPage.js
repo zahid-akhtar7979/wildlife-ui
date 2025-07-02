@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { articleService } from '../services/articleService';
-import { format } from 'date-fns';
+import { formatSafeDate } from '../utils/textUtils';
 
 const ArticleDetailPage = () => {
   const { id } = useParams();
@@ -456,7 +456,7 @@ const ArticleDetailPage = () => {
           <Box display="flex" alignItems="center" gap={0.5}>
             <CalendarToday fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">
-              {format(new Date(article.publishDate), 'MMMM dd, yyyy')}
+              {formatSafeDate(article.publishDate, 'MMMM dd, yyyy')}
             </Typography>
           </Box>
 
