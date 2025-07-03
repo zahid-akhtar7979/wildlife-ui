@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production --silent
+RUN npm ci --silent
 
 # Copy source code
 COPY . .
@@ -24,6 +24,9 @@ COPY --from=builder /app/build /usr/share/nginx/html
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Create optimized nginx main configuration
+RUN echo 'worker_processes 4;\n\nevents {\n    worker_connections 1024;\n    multi_accept on;\n}\n\nhttp {\n    include /etc/nginx/conf.d/*.conf;\n    include /etc/nginx/mime.types;\n    default_type application/octet-stream;\n}' > /etc/nginx/nginx.conf
 
 # Expose port (Railway will set PORT env variable)
 EXPOSE 80
