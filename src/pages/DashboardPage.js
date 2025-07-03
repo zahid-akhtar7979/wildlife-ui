@@ -42,7 +42,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { articleService } from '../services/articleService';
-import { format } from 'date-fns';
+import { formatSafeDate } from '../utils/textUtils';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -439,8 +439,8 @@ const DashboardPage = () => {
             }}
           >
             {article.published 
-              ? `Published ${format(new Date(article.publishDate || article.createdAt), 'MMM dd, yyyy')}`
-              : `Created ${format(new Date(article.createdAt), 'MMM dd, yyyy')}`
+              ? `Published ${formatSafeDate(article.publishDate || article.createdAt)}`
+              : `Created ${formatSafeDate(article.createdAt)}`
             }
           </Typography>
         </Box>
