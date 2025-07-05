@@ -4,11 +4,31 @@ export const articleService = {
   // Get all published articles
   getArticles: async (filters = {}) => {
     try {
+      // If category is specified, use the category-specific endpoint
+      if (filters.category) {
+        const params = {
+          page: filters.page || 1,
+          size: filters.limit || 10
+        };
+        const response = await api.get(`/articles/category/${filters.category}`, { params });
+        return response.data;
+      }
+
+      // If search is specified, use the search endpoint
+      if (filters.search) {
+        const params = {
+          q: filters.search,
+          page: filters.page || 1,
+          size: filters.limit || 10
+        };
+        const response = await api.get('/articles/search', { params });
+        return response.data;
+      }
+
+      // Otherwise, use the main articles endpoint
       const params = {};
       
-      if (filters.search) params.search = filters.search;
       if (filters.tags && filters.tags.length > 0) params.tags = filters.tags.join(',');
-      if (filters.category) params.category = filters.category;
       if (filters.featured !== undefined) params.featured = filters.featured;
       if (filters.page) params.page = filters.page;
       if (filters.limit) params.limit = filters.limit;

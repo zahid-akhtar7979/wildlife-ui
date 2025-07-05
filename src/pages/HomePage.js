@@ -31,6 +31,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format, parseISO, isValid } from 'date-fns';
 import Footer from '../components/common/Footer';
 import { articleService } from '../services/articleService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Helper function to safely get a valid date
 const getValidDate = (article) => {
@@ -57,6 +58,7 @@ const formatSafeDate = (article, formatString = 'MMM d, yyyy') => {
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { user, hasRole } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
@@ -254,7 +256,7 @@ const HomePage = () => {
                 fontWeight: 500,
               }}
             >
-              {article.author?.name || 'Unknown Author'}
+              {article.author?.name || (article.author?.email ? article.author.email.split('@')[0] : 'Anonymous')}
             </Typography>
           </Box>
           
@@ -272,19 +274,21 @@ const HomePage = () => {
             </Typography>
           </Box>
 
-          <Box display="flex" alignItems="center" gap={0.5}>
-            <Visibility sx={{ fontSize: 16, color: '#6b7280' }} />
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: '#6b7280',
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 500,
-              }}
-            >
-              {(article.views || 0).toLocaleString()} views
-            </Typography>
-          </Box>
+          {hasRole('admin') && (
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <Visibility sx={{ fontSize: 16, color: '#6b7280' }} />
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: '#6b7280',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                }}
+              >
+                {(article.views || 0).toLocaleString()} views
+              </Typography>
+            </Box>
+          )}
         </Box>
         
         {/* Title */}
