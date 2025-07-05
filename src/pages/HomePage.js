@@ -199,7 +199,7 @@ const HomePage = () => {
         if (e.target.closest('button') || e.target.closest('[role="button"]')) {
           return;
         }
-        navigate(`/article/${article.id}`);
+        navigate(`/articles/${article.id}`);
       }}
       sx={{ 
         display: { xs: 'block', md: 'flex' },
@@ -305,7 +305,7 @@ const HomePage = () => {
           }}
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/article/${article.id}`);
+            navigate(`/articles/${article.id}`);
           }}
         >
           {article.title}
@@ -391,7 +391,7 @@ const HomePage = () => {
             endIcon={<ArrowForward sx={{ fontSize: 18 }} />}
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/article/${article.id}`);
+              navigate(`/articles/${article.id}`);
             }}
             sx={{ 
               color: '#2e7d32',

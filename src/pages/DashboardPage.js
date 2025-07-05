@@ -335,7 +335,7 @@ const DashboardPage = () => {
           if (e.target.closest('button') || e.target.closest('[role="button"]')) {
             return;
           }
-          navigate(`/article/${article.id}`);
+          navigate(`/articles/${article.id}`);
         }}
         sx={{ 
           height: 420, // Fixed height for consistency
@@ -518,7 +518,7 @@ const DashboardPage = () => {
               startIcon={<Visibility />}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/article/${article.id}`);
+                navigate(`/articles/${article.id}`);
               }}
               sx={{
                 color: '#2e7d32',
@@ -1027,7 +1027,7 @@ const DashboardPage = () => {
           )}
           {selectedArticle?.published && (
             <MenuItem 
-              onClick={() => navigate(`/article/${selectedArticle.id}`)}
+              onClick={() => navigate(`/articles/${selectedArticle.id}`)}
               sx={{ 
                 fontFamily: 'Inter, sans-serif',
                 '&:hover': { backgroundColor: '#f0f9f0' },

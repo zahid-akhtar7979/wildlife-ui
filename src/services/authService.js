@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Base URL for API - In production, this would be your actual backend URL
-// const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://wildlife-api-java-production.up.railway.app/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://wildlife-api-java-production.up.railway.app';
 
 // Create axios instance
 const api = axios.create({
@@ -278,6 +278,26 @@ export const authService = {
       
       return { data: { message: 'Logged out successfully' } };
     } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update user profile
+  updateProfile: async (profileData) => {
+    try {
+      console.log('🔄 Updating user profile:', profileData);
+      const response = await api.put('/api/users/me', profileData);
+      
+      // Update local storage with new user data
+      if (response.data?.success) {
+        const userData = response.data.user;
+        localStorage.setItem('userData', JSON.stringify(userData));
+        console.log('✅ Profile updated successfully');
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to update profile:', error);
       throw error;
     }
   },

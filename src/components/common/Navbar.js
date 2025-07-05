@@ -104,6 +104,11 @@ const Navbar = () => {
         </Box>
       </MenuItem>
       
+      <MenuItem onClick={() => handleNavigation('/profile')} sx={{ color: '#374151' }}>
+        <AccountCircle sx={{ mr: 1.5, fontSize: 18 }} />
+        Profile Settings
+      </MenuItem>
+
       <MenuItem onClick={handleLogout} sx={{ color: '#374151' }}>
         <Logout sx={{ mr: 1.5, fontSize: 18 }} />
         Sign out

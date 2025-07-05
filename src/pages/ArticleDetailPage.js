@@ -624,7 +624,14 @@ const ArticleDetailPage = () => {
           About the Author
         </Typography>
         <Box display="flex" alignItems="center" gap={2}>
-          <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}>
+          <Avatar 
+            src={article.author?.profilePictureUrl}
+            sx={{ 
+              width: 60, 
+              height: 60, 
+              bgcolor: 'primary.main' 
+            }}
+          >
             {article.author?.name?.charAt(0) || 'A'}
           </Avatar>
           <Box>
@@ -632,8 +639,7 @@ const ArticleDetailPage = () => {
               {article.author?.name || 'Unknown Author'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Wildlife researcher and conservationist dedicated to protecting endangered species 
-              and raising awareness about wildlife conservation.
+              {article.author?.bio || 'No bio available'}
             </Typography>
           </Box>
         </Box>
