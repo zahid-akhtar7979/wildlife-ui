@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Base URL for API - In production, this would be your actual backend URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://wildlife-api-java-production.up.railway.app/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://wildlife-api-java-production.up.railway.app/api';
 
 // Create axios instance
 const api = axios.create({
@@ -11,37 +12,83 @@ const api = axios.create({
   },
 });
 
+// Token refresh configuration
+const REFRESH_TOKEN_BEFORE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
+let tokenRefreshTimeout;
+
+// Function to parse JWT token and get expiration time
+const getTokenExpirationTime = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    const { exp } = JSON.parse(jsonPayload);
+    return exp * 1000; // Convert to milliseconds
+  } catch (error) {
+    console.error('Error parsing token:', error);
+    return null;
+  }
+};
+
+// Function to schedule token refresh
+const scheduleTokenRefresh = (token) => {
+  if (!token) return;
+
+  // Clear any existing refresh timeout
+  if (tokenRefreshTimeout) {
+    clearTimeout(tokenRefreshTimeout);
+  }
+
+  const expirationTime = getTokenExpirationTime(token);
+  if (!expirationTime) return;
+
+  const timeUntilRefresh = expirationTime - Date.now() - REFRESH_TOKEN_BEFORE_EXPIRY;
+  
+  if (timeUntilRefresh <= 0) {
+    // Token is already expired or will expire very soon
+    authService.forceLogout();
+    return;
+  }
+
+  console.log(`🕒 Scheduling token refresh in ${Math.floor(timeUntilRefresh / 1000 / 60)} minutes`);
+  
+  tokenRefreshTimeout = setTimeout(async () => {
+    try {
+      // Try to refresh the token
+      const response = await api.post('/auth/refresh-token');
+      if (response.data?.token) {
+        localStorage.setItem('authToken', response.data.token);
+        authService.setAuthToken(response.data.token);
+        scheduleTokenRefresh(response.data.token);
+        console.log('🔄 Token refreshed successfully');
+      } else {
+        throw new Error('No token in refresh response');
+      }
+    } catch (error) {
+      console.error('Failed to refresh token:', error);
+      authService.forceLogout();
+    }
+  }, timeUntilRefresh);
+};
+
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    // Try both possible token key names for compatibility
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const url = config.url;
     
-    console.log('🌐 Making request to:', url);
-    console.log('🔍 Checking localStorage for token...');
-    console.log('   - authToken:', localStorage.getItem('authToken') ? 'FOUND' : 'NOT FOUND');
-    console.log('   - token:', localStorage.getItem('token') ? 'FOUND' : 'NOT FOUND');
-    console.log('🔑 Using token:', token ? token.substring(0, 20) + '...' : 'NONE');
-    
-    // Check for mock token and force logout
-    if (token && token.includes('mock-jwt-token')) {
-      console.log('🚨 MOCK TOKEN DETECTED! Force logout...');
-      authService.forceLogout();
-      return Promise.reject(new Error('Mock token detected - forcing logout'));
-    }
-    
     if (token) {
+      // Check token expiration
+      const expirationTime = getTokenExpirationTime(token);
+      if (expirationTime && Date.now() >= expirationTime) {
+        console.log('🚨 Token expired, forcing logout');
+        authService.forceLogout();
+        return Promise.reject(new Error('Token expired'));
+      }
+
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('✅ Adding auth token to request headers');
-      console.log('📋 Request headers:', {
-        ...config.headers,
-        Authorization: `Bearer ${token.substring(0, 20)}...`
-      });
-    } else {
-      console.log('⚠️ No auth token found for request:', url);
-      console.log('💾 All localStorage keys:', Object.keys(localStorage));
-      console.log('💾 All localStorage values:', Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])));
     }
     return config;
   },
@@ -54,37 +101,33 @@ api.interceptors.request.use(
 // Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Response received:', response.status, response.config.url);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
     const status = error.response?.status;
-    const url = error.config?.url;
-    const data = error.response?.data;
     
-    console.log('❌ Response error:', status, url);
-    console.log('📄 Error details:', data);
-    
-    if (status === 401) {
-      console.log('🚫 401 Unauthorized - checking current token...');
-      const currentToken = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const currentUser = localStorage.getItem('userData') || localStorage.getItem('user');
+    // Handle 401/403 responses
+    if ((status === 401 || status === 403) && !originalRequest._retry) {
+      originalRequest._retry = true;
       
-      console.log('🔍 Current token exists:', !!currentToken);
-      console.log('🔍 Current user exists:', !!currentUser);
-      
-      if (currentToken) {
-        console.log('🔑 Token preview:', currentToken.substring(0, 50) + '...');
+      try {
+        // Try to refresh the token
+        const response = await api.post('/auth/refresh-token');
+        if (response.data?.token) {
+          localStorage.setItem('authToken', response.data.token);
+          authService.setAuthToken(response.data.token);
+          scheduleTokenRefresh(response.data.token);
+          
+          // Retry the original request
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        authService.forceLogout();
       }
-      
-      // Unauthorized - clear token and redirect to login
-      console.log('🧹 Clearing localStorage and redirecting to login');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // window.location.href = '/login'; // Comment out for debugging
     }
+    
     return Promise.reject(error);
   }
 );
@@ -92,17 +135,18 @@ api.interceptors.response.use(
 export const authService = {
   // Force clear all authentication data
   forceLogout: () => {
-    // Clear localStorage completely
+    if (tokenRefreshTimeout) {
+      clearTimeout(tokenRefreshTimeout);
+    }
+    
     localStorage.clear();
     sessionStorage.clear();
     
-    // Clear all possible token keys
     ['authToken', 'token', 'userData', 'user', 'currentUser'].forEach(key => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
     
-    // Remove auth header
     delete api.defaults.headers.common['Authorization'];
     
     console.log('🧹 FORCE LOGOUT: All auth data cleared');
@@ -156,41 +200,23 @@ export const authService = {
       console.log('🔐 Attempting login for:', email);
       const response = await api.post('/auth/login', { email, password });
       
-      console.log('📦 Login response:', response.data);
-      
-      // Store token and user data - Backend returns token and user directly in response.data
       if (response.data.success && response.data.token) {
         const token = response.data.token;
         const user = response.data.user;
         
-        console.log('💾 Storing token:', token.substring(0, 20) + '...');
-        console.log('👤 Storing user:', user);
-        
         localStorage.setItem('authToken', token);
         localStorage.setItem('userData', JSON.stringify(user));
         
-        // Set token for future requests
         authService.setAuthToken(token);
+        scheduleTokenRefresh(token); // Schedule token refresh
         
-        // Verify storage
-        const storedToken = localStorage.getItem('authToken');
-        const storedUser = localStorage.getItem('userData');
-        console.log('✅ Token stored successfully:', storedToken ? storedToken.substring(0, 20) + '...' : 'MISSING');
-        console.log('✅ User stored successfully:', storedUser ? 'YES' : 'MISSING');
-        
-        console.log('✅ Login successful, token stored:', token.substring(0, 20) + '...');
+        return { success: true, user: response.data.user };
       } else {
-        console.log('❌ Login response missing token or success flag:', response.data);
+        return { success: false, error: response.data.message || 'Login failed' };
       }
-      
-      return response.data;
     } catch (error) {
-      console.log('❌ Login error:', error.response?.data || error.message);
-      // Handle API error response
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      }
-      throw error;
+      console.error('Login error:', error);
+      return { success: false, error: error.message || 'Login failed' };
     }
   },
 
@@ -240,14 +266,15 @@ export const authService = {
   // Logout
   logout: async () => {
     try {
-      // Clear local storage - both possible key names
+      if (tokenRefreshTimeout) {
+        clearTimeout(tokenRefreshTimeout);
+      }
+      
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       authService.removeAuthToken();
-      
-      console.log('🧹 Logout complete - cleared all localStorage keys');
       
       return { data: { message: 'Logged out successfully' } };
     } catch (error) {

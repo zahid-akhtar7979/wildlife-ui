@@ -434,11 +434,10 @@ const EditArticlePage = () => {
     fetchArticle();
   }, [fetchArticle]);
 
-  // Upload file with progress tracking - matching CreateArticlePage
+  // Upload file with progress tracking - OPTIMIZED
   const uploadFile = useCallback(async (file, type) => {
     const fileId = Date.now() + Math.random();
     const previewUrl = URL.createObjectURL(file);
-    console.log('🖼️ Created local preview URL:', previewUrl, 'for file:', file.name);
 
     const fileData = {
       id: fileId,
@@ -450,8 +449,18 @@ const EditArticlePage = () => {
       error: null,
     };
 
+    // Batch state updates
+    const updateState = (data) => {
+      setUploadingFiles(prev => new Map(prev.set(fileId, data)));
+      if (type === 'images') {
+        setImages(prev => prev.map(img => img.id === fileId ? data : img));
+      } else {
+        setVideos(prev => prev.map(vid => vid.id === fileId ? { ...data, thumbnail: data.url } : vid));
+      }
+    };
+
+    // Initial state
     setUploadingFiles(prev => new Map(prev.set(fileId, fileData)));
-    
     if (type === 'images') {
       setImages(prev => [...prev, fileData]);
     } else {
@@ -461,18 +470,22 @@ const EditArticlePage = () => {
     let progressInterval;
     
     try {
+      // Optimized progress updates for both images and videos
+      const updateInterval = type === 'videos' ? 1000 : 800; // Slower updates for videos
+      const progressIncrement = type === 'videos' ? 20 : 25; // Larger increments for both
+
       progressInterval = setInterval(() => {
         setUploadingFiles(prev => {
-          const updated = new Map(prev);
-          const current = updated.get(fileId);
+          const current = prev.get(fileId);
           if (current && current.progress < 90) {
-            const newProgress = Math.min(current.progress + 15, 90);
-            updated.set(fileId, { ...current, progress: newProgress });
-            return updated;
+            const newProgress = Math.min(current.progress + progressIncrement, 90);
+            const updated = { ...current, progress: newProgress };
+            updateState(updated);
+            return new Map(prev.set(fileId, updated));
           }
           return prev;
         });
-      }, 500);
+      }, updateInterval);
 
       // Upload to server
       const response = type === 'images' 
@@ -481,10 +494,7 @@ const EditArticlePage = () => {
 
       clearInterval(progressInterval);
 
-      console.log(`✅ ${type.slice(0, -1)} upload successful:`, response);
-
       const uploadData = type === 'images' ? response.data.image : response.data.video;
-      console.log('🔍 Extracted upload data:', uploadData);
       
       const uploadedFile = {
         id: fileId,
@@ -498,16 +508,8 @@ const EditArticlePage = () => {
         sizes: uploadData.sizes || {},
       };
 
-      if (type === 'images') {
-        setImages(prev => prev.map(img => 
-          img.id === fileId ? uploadedFile : img
-        ));
-      } else {
-        setVideos(prev => prev.map(vid => 
-          vid.id === fileId ? { ...uploadedFile, thumbnail: uploadedFile.thumbnailUrl } : vid
-        ));
-      }
-
+      // Final state update
+      updateState(uploadedFile);
       setUploadingFiles(prev => {
         const updated = new Map(prev);
         updated.delete(fileId);
@@ -515,8 +517,6 @@ const EditArticlePage = () => {
       });
 
     } catch (error) {
-      console.error(`❌ ${type.slice(0, -1)} upload failed:`, error);
-
       if (progressInterval) {
         clearInterval(progressInterval);
       }
@@ -531,16 +531,8 @@ const EditArticlePage = () => {
         error: error.message || 'Upload failed',
       };
 
-      if (type === 'images') {
-        setImages(prev => prev.map(img => 
-          img.id === fileId ? errorFile : img
-        ));
-      } else {
-        setVideos(prev => prev.map(vid => 
-          vid.id === fileId ? { ...errorFile, thumbnail: errorFile.url } : vid
-        ));
-      }
-
+      // Error state update
+      updateState(errorFile);
       setUploadingFiles(prev => {
         const updated = new Map(prev);
         updated.delete(fileId);
@@ -549,39 +541,31 @@ const EditArticlePage = () => {
     }
   }, []);
 
-  // Image dropzone - matching CreateArticlePage
+  // Image dropzone - OPTIMIZED
   const imageDropzone = useDropzone({
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
     maxFiles: 10,
     maxSize: 5 * 1024 * 1024, // 5MB
-    onDrop: useCallback((acceptedFiles, fileRejections, event) => {
-      try {
-        if (fileRejections.length > 0) {
-          const errors = fileRejections.map(rejection => 
-            `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
-          );
-          setSubmitError(`Image upload errors: ${errors.join('; ')}`);
-        }
-        
-        acceptedFiles.forEach(file => {
-          uploadFile(file, 'images');
-        });
-      } catch (error) {
-        console.error('❌ Error in onDrop handler:', error);
-      }
-    }, [uploadFile]),
-    onDropRejected: (fileRejections, event) => {
-      try {
-        console.log('❌ IMAGE DROPZONE - onDropRejected triggered:', fileRejections);
+    onDrop: useCallback((acceptedFiles, fileRejections) => {
+      if (fileRejections.length > 0) {
         const errors = fileRejections.map(rejection => 
           `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
         );
         setSubmitError(`Image upload errors: ${errors.join('; ')}`);
-      } catch (error) {
-        console.error('❌ Error in onDropRejected handler:', error);
       }
+      
+      // Process all files in one batch
+      acceptedFiles.forEach(file => {
+        uploadFile(file, 'images');
+      });
+    }, [uploadFile]),
+    onDropRejected: (fileRejections) => {
+      const errors = fileRejections.map(rejection => 
+        `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
+      );
+      setSubmitError(`Image upload errors: ${errors.join('; ')}`);
     },
   });
 

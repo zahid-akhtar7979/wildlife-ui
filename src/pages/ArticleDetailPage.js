@@ -93,6 +93,21 @@ const ArticleDetailPage = () => {
   const MediaGallery = ({ images, videos }) => {
     if (!images?.length && !videos?.length) return null;
 
+    // Function to get video thumbnail URL
+    const getVideoThumbnail = (video) => {
+      if (!video?.url) return null;
+
+      // Extract the video ID and version from the URL
+      const urlMatch = video.url.match(/\/upload\/(v\d+)\/wildlife-videos\/(.*?)\.mp4$/);
+      if (!urlMatch) return video.thumbnail;
+
+      const [_, version, videoId] = urlMatch;
+      const cloudinaryBaseUrl = 'https://res.cloudinary.com/dc2tqyj5d';
+      
+      // Construct the thumbnail URL with proper transformations and path
+      return `${cloudinaryBaseUrl}/video/upload/${version}/wildlife-videos/${videoId}.jpg`;
+    };
+
     return (
       <Box mb={4}>
         <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
@@ -173,100 +188,122 @@ const ArticleDetailPage = () => {
             </Grid>
           ))}
           
-          {videos?.map((video, index) => (
-            <Grid 
-              item 
-              xs={12} 
-              sm={6} 
-              md={6}
-              lg={4}
-              key={video.id}
-            >
-              <Card 
-                sx={{ 
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'all 0.3s ease',
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  '&:hover': { 
-                    transform: { xs: 'none', sm: 'scale(1.02)' },
-                    boxShadow: 3
-                  }
-                }}
-                onClick={() => setSelectedMedia({ type: 'video', ...video })}
+          {videos?.map((video, index) => {
+            const thumbnailUrl = getVideoThumbnail(video);
+            console.log('Processing video:', {
+              videoUrl: video.url,
+              originalThumbnail: video.thumbnail,
+              constructedThumbnail: thumbnailUrl
+            });
+            
+            return (
+              <Grid 
+                item 
+                xs={12} 
+                sm={6} 
+                md={6}
+                lg={4}
+                key={video.id || index}
               >
-                <Box position="relative">
-                  <CardMedia
-                    component="img"
-                    height={{ xs: 180, sm: 200 }}
-                    image={video.thumbnail}
-                    alt={video.caption}
-                    loading="lazy"
-                    sx={{ objectFit: 'cover' }}
-                  />
-                  {/* Video play button */}
-                  <Box
-                    position="absolute"
-                    top="50%"
-                    left="50%"
-                    sx={{
-                      transform: 'translate(-50%, -50%)',
-                      backgroundColor: 'rgba(0,0,0,0.8)',
-                      borderRadius: '50%',
-                      width: { xs: 48, sm: 56 },
-                      height: { xs: 48, sm: 56 },
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'rgba(0,0,0,0.9)',
-                        transform: 'translate(-50%, -50%) scale(1.1)'
-                      }
-                    }}
-                  >
-                    <PlayArrow sx={{ color: 'white', fontSize: { xs: 24, sm: 32 } }} />
-                  </Box>
-                  {/* Video badge */}
-                  <Box
-                    position="absolute"
-                    top={8}
-                    right={8}
-                    sx={{
-                      backgroundColor: 'rgba(220, 20, 60, 0.9)',
-                      color: 'white',
-                      borderRadius: 1,
-                      px: 1,
-                      py: 0.5,
-                      fontSize: '10px',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    VIDEO
-                  </Box>
-                </Box>
-                {video.caption && (
-                  <Box p={{ xs: 1, sm: 1.5 }} flexGrow={1}>
-                    <Typography 
-                      variant="caption" 
-                      color="text.secondary"
-                      sx={{ 
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        lineHeight: 1.3
+                <Card 
+                  sx={{ 
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.3s ease',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    '&:hover': { 
+                      transform: { xs: 'none', sm: 'scale(1.02)' },
+                      boxShadow: 3
+                    }
+                  }}
+                  onClick={() => setSelectedMedia({ 
+                    type: 'video',
+                    ...video,
+                    thumbnail: thumbnailUrl
+                  })}
+                >
+                  <Box position="relative">
+                    <CardMedia
+                      component="img"
+                      height={{ xs: 180, sm: 200 }}
+                      image={thumbnailUrl}
+                      alt={video.caption || 'Video thumbnail'}
+                      loading="lazy"
+                      sx={{ objectFit: 'cover' }}
+                      onError={(e) => {
+                        console.error('Error loading thumbnail:', {
+                          url: thumbnailUrl,
+                          videoId: video.id,
+                          originalThumbnail: video.thumbnail
+                        });
+                        e.target.style.backgroundColor = '#333';
+                        e.target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z'/%3E%3C/svg%3E`;
+                      }}
+                    />
+                    {/* Video play button */}
+                    <Box
+                      position="absolute"
+                      top="50%"
+                      left="50%"
+                      sx={{
+                        transform: 'translate(-50%, -50%)',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderRadius: '50%',
+                        width: { xs: 48, sm: 56 },
+                        height: { xs: 48, sm: 56 },
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: 'rgba(0,0,0,0.9)',
+                          transform: 'translate(-50%, -50%) scale(1.1)'
+                        }
                       }}
                     >
-                      {video.caption}
-                    </Typography>
+                      <PlayArrow sx={{ color: 'white', fontSize: { xs: 24, sm: 32 } }} />
+                    </Box>
+                    {/* Video badge */}
+                    <Box
+                      position="absolute"
+                      top={8}
+                      right={8}
+                      sx={{
+                        backgroundColor: 'rgba(220, 20, 60, 0.9)',
+                        color: 'white',
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.5,
+                        fontSize: '10px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      VIDEO
+                    </Box>
                   </Box>
-                )}
-              </Card>
-            </Grid>
-          ))}
+                  {video.caption && (
+                    <Box p={{ xs: 1, sm: 1.5 }} flexGrow={1}>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ 
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          lineHeight: 1.3
+                        }}
+                      >
+                        {video.caption}
+                      </Typography>
+                    </Box>
+                  )}
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       </Box>
     );
